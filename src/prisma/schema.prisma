@@ -94,6 +94,7 @@ model User {
   created_at             DateTime              @default(now())
   updated_at             DateTime              @updatedAt
   is_deleted             Boolean               @default(false)
+  profile_type           PROFILE_TYPE?         @default(user)
   notifications          Notification[]
   chats1                 Chat[]                @relation("User1")
   chats2                 Chat[]                @relation("User2")

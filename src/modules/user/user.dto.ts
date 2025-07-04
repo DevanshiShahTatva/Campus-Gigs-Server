@@ -9,7 +9,7 @@ import {
   IsString,
   MinLength,
 } from 'class-validator';
-import { ROLE } from 'src/utils/enums';
+import { ROLE, PROFILE_TYPE } from 'src/utils/enums';
 
 export class SignupDto {
   @IsString()
@@ -25,6 +25,10 @@ export class SignupDto {
   @IsOptional()
   @IsEnum(ROLE)
   role: ROLE;
+
+  @IsOptional()
+  @IsEnum(PROFILE_TYPE)
+  profile_type?: PROFILE_TYPE;
 
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean({ message: 'You must agreed the terms and conditions' })

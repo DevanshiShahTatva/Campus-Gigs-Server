@@ -7,10 +7,11 @@ import {
 import { UserService } from '../user/user.service';
 import { ProfileUpdateDto } from './profile.dto';
 import { excludeFromObject } from 'src/utils/helper';
+import { BuyPlanService } from '../buy-plan/buy-plan.service';
 
 @Injectable()
 export class ProfileService {
-  constructor(@Inject() private userService: UserService) {}
+  constructor(@Inject() private userService: UserService, @Inject() private buyPlanService: BuyPlanService) {}
 
   async getProfile(id: string) {
     const userdata = await this.userService.findById(Number(id));
@@ -20,7 +21,8 @@ export class ProfileService {
         message: 'User not found',
       });
     }
-    return excludeFromObject(userdata, ['password'])
+    const subscription = await this.buyPlanService.findActivePlan(Number(id));
+    return { ...excludeFromObject(userdata, ['password']), subscription };
   }
 
   async updateProfile(
@@ -38,7 +40,7 @@ export class ProfileService {
     }
 
     const updatedUser = await this.userService.updateUser(Number(id), body, file);
-
-    return excludeFromObject(updatedUser, ['password']);
+    const subscription = await this.buyPlanService.findActivePlan(Number(id));
+    return { ...excludeFromObject(updatedUser, ['password']), subscription };
   }
 }
