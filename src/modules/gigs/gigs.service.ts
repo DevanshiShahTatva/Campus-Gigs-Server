@@ -2,6 +2,7 @@ import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { GigsQueryParams, PostGigsDto } from './gigs.dto';
 import { AwsS3Service } from '../shared/aws-s3.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { GIG_STATUS } from 'src/utils/enums';
 
 @Injectable()
 export class GigsService {
@@ -37,14 +38,16 @@ export class GigsService {
       },
     });
 
-    return gig;
+    return { message: 'Gigs created successfully', data: gig }
   }
 
   async get(query: GigsQueryParams) {
-    const { page, pageSize, search, status } = query;
+    const { page, pageSize, search } = query;
     const skip = (page - 1) * pageSize;
 
-    const baseQuery: any = {};
+    const baseQuery: any = {
+      AND: [{ status: GIG_STATUS.UNSTARTED }],
+    };
 
     if (search) {
       baseQuery.OR = [
@@ -66,10 +69,6 @@ export class GigsService {
           },
         },
       ];
-    }
-
-    if (status) {
-      baseQuery.AND = [{ status: status }];
     }
 
     const [items, total] = await Promise.all([
