@@ -47,8 +47,9 @@ export class GigsController {
   }
 
   @Get(":id")
-  getGigById(@Param("id") id: string) {
-    return this.gigsService.findById(Number(id));
+  getGigById(@Param("id") id: string, @Req() request: Request) {
+    const user = request.user as any;
+    return this.gigsService.findById(Number(id), Number(user?.id));
   }
 
   @Put(':id')
