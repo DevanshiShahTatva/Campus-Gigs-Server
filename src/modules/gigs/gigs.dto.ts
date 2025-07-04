@@ -92,4 +92,12 @@ export class GigsQueryParams extends PaginationParams {
   @IsString()
   @Transform(({ value }) => value?.trim())
   search?: string;
+
+  @IsOptional()
+  @IsEnum(GIG_STATUS)
+  status?: string;
+
+  @IsOptional()
+  @IsEnum(PROFILE_TYPE)
+  profile_type?: string;
 }
