@@ -187,7 +187,7 @@ export class GigsService {
     return { data: items, meta, message: 'Gigs fetch successfully' };
   }
 
-  async findById(id: number) {
+  async findById(id: number, user_id: number) {
     const gig = await this.prismaService.gigs.findUnique({
       where: { id },
       include: {
@@ -202,10 +202,23 @@ export class GigsService {
             name: true,
           },
         },
+        bids: {
+          where: {
+            provider_id: user_id,
+            is_deleted: false,
+          },
+          select: {
+            id: true,
+            status: true,
+          },
+        },
       },
     });
 
-    return gig;
+    return {
+      ...gig,
+      hasBid: gig?.bids && gig.bids.length > 0,
+    };
   }
 
   async put(id: number, body: PostGigsDto, files?: Express.Multer.File[]) {

@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Param, Get, Req, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Param, Get, Req, UseGuards, Put } from '@nestjs/common';
 import { Request } from 'express';
 import { BidsService } from './bids.service';
 import { CreateBidDto } from './bids.dto';
@@ -21,6 +21,18 @@ export class BidsController {
 
   @Get('gig/:gigId')
   async getBidsByGigId(@Param('gigId') gigId: number) {
-    return this.bidsService.getBidsByGigId(gigId);
+    return this.bidsService.getBidsByGigId(Number(gigId));
+  }
+
+  @Post('accept/:bidId')
+  async acceptBid(@Param('bidId') bidId: number, @Req() request: Request) {
+    const user = request.user as any;
+    return this.bidsService.acceptBid(Number(user?.id), Number(bidId));
+  }
+
+  @Put('update/:bidId')
+  async updateBid(@Param('bidId') bidId: number, @Body() updateData: CreateBidDto, @Req() request: Request) {
+    const user = request.user as any;
+    return this.bidsService.updateBid(Number(user?.id), Number(bidId), updateData);
   }
 }
