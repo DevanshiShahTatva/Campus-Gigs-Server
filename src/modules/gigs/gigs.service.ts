@@ -251,8 +251,7 @@ export class GigsService {
         ...body,
         images: finalImages,
         skills: {
-          set: [],
-          connect: body.skills?.map((id) => ({ id: id })) || [],
+          connect: body.skills?.map((id) => ({ id: Number(id) })) || [],
         },
       },
     });

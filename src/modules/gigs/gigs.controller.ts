@@ -60,9 +60,15 @@ export class GigsController {
   putGigs(
     @Param('id') id: string,
     @Body() body: PostGigsDto,
+    @Req() request: Request,
     @UploadedFiles() files: Array<Express.Multer.File>,
   ) {
-    return this.gigsService.put(Number(id), body, files);
+    const user = request.user as any;
+    const newBody = {
+      ...body,
+      user_id: Number(user?.id),
+    };
+    return this.gigsService.put(Number(id), newBody, files);
   }
 
   @Delete(':id')
