@@ -38,13 +38,20 @@ import { SeedingModule } from './modules/seeder/seeding.module';
 import { GigsCategoryModule } from './modules/gigscategory/gigscategory.module';
 import { GigsModule } from './modules/gigs/gigs.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
+import { ChatModule } from './modules/chat/chat.module';
 import { BidsModule } from './modules/bids/bids.module';
 import { SkillsModule } from './modules/skills/skills.module';
 
 @Module({
   imports: [
     // Config and core modules
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env'] }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: ['.env'],
+    }),
+    // WebSocket module is configured in individual gateways
+    // Core modules
+    PrismaModule,
 
     // Auth and User related modules (with circular deps)
     forwardRef(() => AuthModule),
@@ -89,15 +96,18 @@ import { SkillsModule } from './modules/skills/skills.module';
       }),
       inject: [ConfigService],
     }),
-    PrismaModule,
+
+    // App modules
     UserModule,
-    BadgeModule,
+    AuthModule,
+    ChatModule, // This contains our ChatGateway
     SubscriptionPlanModule,
     ContactUsModule,
     FaqModule,
     TermsModule,
     TireModule,
     SeedingModule,
+    ChatModule,
     PrivacyPolicyModule,
     GigsCategoryModule,
     BidsModule,
@@ -113,7 +123,6 @@ import { SkillsModule } from './modules/skills/skills.module';
     },
   ],
 })
-
 export class AppModule implements NestModule {
   constructor() {}
 
