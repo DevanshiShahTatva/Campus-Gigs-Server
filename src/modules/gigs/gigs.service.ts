@@ -8,7 +8,7 @@ export class GigsService {
   constructor(
     private awsS3Service: AwsS3Service,
     private prismaService: PrismaService,
-  ) { }
+  ) {}
 
   async create(body: PostGigsDto, files?: Express.Multer.File[]) {
     const imageUrls: string[] = [];
@@ -41,7 +41,7 @@ export class GigsService {
   }
 
   async get(query: GigsQueryParams) {
-    const { page, pageSize, search } = query;
+    const { page, pageSize, search, status } = query;
     const skip = (page - 1) * pageSize;
 
     const baseQuery: any = {};
@@ -66,6 +66,76 @@ export class GigsService {
           },
         },
       ];
+    }
+
+    if (status) {
+      baseQuery.AND = [{ status: status }];
+    }
+
+    const [items, total] = await Promise.all([
+      this.prismaService.gigs.findMany({
+        where: baseQuery,
+        skip,
+        take: pageSize,
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              role: true,
+              profile: true,
+              professional_interests: true,
+              extracurriculars: true,
+              certifications: true,
+              education: true,
+              skills: true,
+            },
+          },
+          skills: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          gig_category: {
+            select: {
+              id: true,
+              name: true,
+              description: true,
+              tire: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+      this.prismaService.gigs.count({ where: baseQuery }),
+    ]);
+
+    const totalPages = Math.ceil(total / pageSize);
+    const meta = { page, pageSize, total, totalPages };
+
+    return { data: items, meta, message: 'Gigs fetch successfully' };
+  }
+
+  async getMyGigs(query: GigsQueryParams, user_id: string) {
+    const { page, pageSize, status, profile_type } = query;
+    const skip = (page - 1) * pageSize;
+
+    const baseQuery: any = {
+      AND: [{ user_id: user_id }],
+    };
+
+    if (status) {
+      baseQuery.AND.push({ status });
+    }
+
+    if (profile_type) {
+      baseQuery.AND.push({ profile_type });
     }
 
     const [items, total] = await Promise.all([

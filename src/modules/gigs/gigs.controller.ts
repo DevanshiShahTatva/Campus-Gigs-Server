@@ -22,9 +22,7 @@ import { multerOptions } from 'src/utils/multer';
 @Controller('gigs')
 @UseGuards(JwtAuthGuard)
 export class GigsController {
-  constructor(
-    private gigsService: GigsService,
-  ) {}
+  constructor(private gigsService: GigsService) {}
 
   @Post()
   @UseInterceptors(FilesInterceptor('files', 5, multerOptions))
@@ -36,7 +34,7 @@ export class GigsController {
     const user = request.user as any;
     const newBody = {
       ...body,
-      user_id: Number(user?.id)
+      user_id: Number(user?.id),
     };
     return this.gigsService.create(newBody, files);
   }
@@ -46,8 +44,14 @@ export class GigsController {
     return this.gigsService.get(query);
   }
 
-  @Get(":id")
-  getGigById(@Param("id") id: string) {
+  @Get('/my-gigs')
+  getMyGigs(@Query() query: GigsQueryParams, @Req() request: Request) {
+    const user = request.user as any;
+    return this.gigsService.getMyGigs(query, user.id);
+  }
+
+  @Get(':id')
+  getGigById(@Param('id') id: string) {
     return this.gigsService.findById(Number(id));
   }
 
