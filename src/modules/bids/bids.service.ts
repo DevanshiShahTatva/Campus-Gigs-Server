@@ -217,4 +217,80 @@ export class BidsService {
 
     return updatedBid;
   }
+
+  async rejectBid(userId: number, bidId: number) {
+    const bid = await this.prismaService.bid.findUnique({
+      where: { id: bidId },
+      select: {
+        id: true,
+        gig_id: true,
+        status: true,
+        provider_id: true,
+      },
+    });
+
+    if (!bid) {
+      throw new NotFoundException('Bid not found');
+    }
+
+    const gig = await this.prismaService.gigs.findFirst({
+      where: {
+        id: bid.gig_id,
+        user_id: userId,
+        is_deleted: false,
+      },
+    });
+
+    if (!gig) {
+      throw new BadRequestException('You do not have permission to reject this bid');
+    }
+
+    if (bid.status !== 'pending') {
+      throw new BadRequestException('This bid cannot be rejected as it is already processed');
+    }
+
+    const updatedBid = await this.prismaService.bid.update({
+      where: { id: bidId },
+      data: {
+        status: 'rejected',
+        updated_at: new Date(),
+      },
+    });
+
+    return updatedBid;
+  }
+
+  async deleteBid(userId: number, bidId: number) {
+    const bid = await this.prismaService.bid.findUnique({
+      where: { id: bidId },
+      select: {
+        id: true,
+        provider_id: true,
+        status: true,
+        is_deleted: true,
+      },
+    });
+
+    if (!bid) {
+      throw new NotFoundException('Bid not found');
+    }
+
+    if (bid.provider_id !== userId) {
+      throw new BadRequestException('You do not have permission to delete this bid');
+    }
+
+    if (bid.is_deleted) {
+      throw new BadRequestException('This bid is already deleted');
+    }
+
+    const updatedBid = await this.prismaService.bid.update({
+      where: { id: bidId },
+      data: {
+        is_deleted: true,
+        updated_at: new Date(),
+      },
+    });
+
+    return updatedBid;
+  }
 }
