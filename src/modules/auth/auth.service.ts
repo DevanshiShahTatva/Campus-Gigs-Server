@@ -15,6 +15,7 @@ import { SignupDto } from '../user/user.dto';
 import { MailService } from '../shared/mail.service';
 import { SubscriptionPlanService } from '../subscription-plan/subscription-plan.service';
 import { BuyPlanService } from '../buy-plan/buy-plan.service';
+import { PROFILE_TYPE } from 'src/utils/enums';
 
 @Injectable()
 export class AuthService {
@@ -113,10 +114,27 @@ export class AuthService {
 
     const token = this.signJWT(user);
 
+    // Fetch active subscription
+    const activeSubscription = await this.buyPlanService.findActivePlan(findUser.id);
+
+    // If the user has a free/basic plan or no subscription and profile_type is not 'user', update it
+    if (
+      (
+        (activeSubscription &&
+          activeSubscription.subscription_plan &&
+          activeSubscription.subscription_plan.price === 0) ||
+        !activeSubscription
+      ) &&
+      findUser.profile_type !== PROFILE_TYPE.USER
+    ) {
+      await this.userService.updateUser(findUser.id, { profile_type: PROFILE_TYPE.USER });
+      findUser.profile_type = PROFILE_TYPE.USER;
+    }
+
     return {
       status: HttpStatus.OK,
       message: 'You have been login successfully',
-      data: { user: findUser, token: token },
+      data: { user: findUser, token: token, subscription: activeSubscription },
     };
   }
 
