@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Param, Get, Req, UseGuards, Put } from '@nestjs/common';
+import { Controller, Post, Body, Param, Get, Req, UseGuards, Put, Delete } from '@nestjs/common';
 import { Request } from 'express';
 import { BidsService } from './bids.service';
 import { CreateBidDto } from './bids.dto';
@@ -24,15 +24,27 @@ export class BidsController {
     return this.bidsService.getBidsByGigId(Number(gigId));
   }
 
+  @Put('update/:bidId')
+  async updateBid(@Param('bidId') bidId: number, @Body() updateData: CreateBidDto, @Req() request: Request) {
+    const user = request.user as any;
+    return this.bidsService.updateBid(Number(user?.id), Number(bidId), updateData);
+  }
+
   @Post('accept/:bidId')
   async acceptBid(@Param('bidId') bidId: number, @Req() request: Request) {
     const user = request.user as any;
     return this.bidsService.acceptBid(Number(user?.id), Number(bidId));
   }
 
-  @Put('update/:bidId')
-  async updateBid(@Param('bidId') bidId: number, @Body() updateData: CreateBidDto, @Req() request: Request) {
+  @Post('reject/:bidId')
+  async rejectBid(@Param('bidId') bidId: number, @Req() request: Request) {
     const user = request.user as any;
-    return this.bidsService.updateBid(Number(user?.id), Number(bidId), updateData);
+    return this.bidsService.rejectBid(Number(user?.id), Number(bidId));
+  }
+
+  @Delete('delete/:bidId')
+  async deleteBid(@Param('bidId') bidId: number, @Req() request: Request) {
+    const user = request.user as any;
+    return this.bidsService.deleteBid(Number(user?.id), Number(bidId));
   }
 }

@@ -1,8 +1,10 @@
-import { IsArray, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsOptional, IsString, IsEnum } from 'class-validator';
+import { PROFILE_TYPE } from 'src/utils/enums';
 
 export class ProfileUpdateDto {
+  @IsOptional()
   @IsString()
-  name: string;
+  name?: string;
 
   @IsOptional()
   @IsString()
@@ -32,4 +34,8 @@ export class ProfileUpdateDto {
   @IsOptional()
   @IsString()
   headline?: string;
+
+  @IsOptional()
+  @IsEnum(PROFILE_TYPE)
+  profile_type?: PROFILE_TYPE;
 }
