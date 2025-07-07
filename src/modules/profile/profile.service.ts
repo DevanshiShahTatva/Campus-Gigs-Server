@@ -8,10 +8,15 @@ import { UserService } from '../user/user.service';
 import { ProfileUpdateDto } from './profile.dto';
 import { excludeFromObject } from 'src/utils/helper';
 import { BuyPlanService } from '../buy-plan/buy-plan.service';
+import { NotificationGateway } from '../shared/notification.gateway';
 
 @Injectable()
 export class ProfileService {
-  constructor(@Inject() private userService: UserService, @Inject() private buyPlanService: BuyPlanService) {}
+  constructor(
+    @Inject() private userService: UserService,
+    @Inject() private buyPlanService: BuyPlanService,
+    @Inject() private notificationGateway: NotificationGateway,
+  ) {}
 
   async getProfile(id: string) {
     const userdata = await this.userService.findById(Number(id));
@@ -41,6 +46,10 @@ export class ProfileService {
 
     const updatedUser = await this.userService.updateUser(Number(id), body, file);
     const subscription = await this.buyPlanService.findActivePlan(Number(id));
+
+    // Trigger notification
+    this.notificationGateway.sendProfileUpdateNotification(id, 'Your profile has been updated.');
+
     return { ...excludeFromObject(updatedUser, ['password']), subscription };
   }
 }
