@@ -12,7 +12,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { GigsQueryParams, PostGigsDto } from './gigs.dto';
+import { GigPipelineQueryParams, GigsQueryParams, PostGigsDto } from './gigs.dto';
 import { GigsService } from './gigs.service';
 import { JwtAuthGuard } from 'src/common/guards/jwt.auth.guard';
 import { Request } from 'express';
@@ -48,6 +48,12 @@ export class GigsController {
   getMyGigs(@Query() query: GigsQueryParams, @Req() request: Request) {
     const user = request.user as any;
     return this.gigsService.getMyGigs(query, user.id);
+  }
+
+  @Get('/gig-pipeline')
+  getPipelineGigs(@Query() query: GigPipelineQueryParams, @Req() request: Request) {
+    const user = request.user as any;
+    return this.gigsService.getPipelineGigs(query, user.id);
   }
 
   @Get(":id")
