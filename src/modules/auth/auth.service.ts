@@ -16,6 +16,7 @@ import { MailService } from '../shared/mail.service';
 import { SubscriptionPlanService } from '../subscription-plan/subscription-plan.service';
 import { BuyPlanService } from '../buy-plan/buy-plan.service';
 import { PROFILE_TYPE } from 'src/utils/enums';
+import { excludeFromObject } from 'src/utils/helper';
 
 @Injectable()
 export class AuthService {
@@ -63,12 +64,7 @@ export class AuthService {
       console.warn('No free plans found for new user');
     }
 
-    const userData = {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-    };
+    const userData = excludeFromObject(user, ['password', 'otp', 'otp_expiry', 'is_deleted']);
 
     const token = this.signJWT(userData);
 
@@ -105,14 +101,9 @@ export class AuthService {
       });
     }
 
-    const user = {
-      id: findUser.id,
-      name: findUser.name,
-      email: findUser.email,
-      role: findUser.role,
-    };
+    const userData = excludeFromObject(findUser, ['password', 'otp', 'otp_expiry', 'is_deleted']);
 
-    const token = this.signJWT(user);
+    const token = this.signJWT(userData);
 
     // Fetch active subscription
     const activeSubscription = await this.buyPlanService.findActivePlan(findUser.id);
@@ -134,7 +125,7 @@ export class AuthService {
     return {
       status: HttpStatus.OK,
       message: 'You have been login successfully',
-      data: { user: findUser, token: token, subscription: activeSubscription },
+      data: { user: userData, token: token, subscription: activeSubscription },
     };
   }
 
