@@ -4,7 +4,6 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -20,7 +19,7 @@ export class ChatService {
   private readonly logger = new Logger(ChatService.name);
   constructor(private prismaService: PrismaService) {}
 
-  async createChat(createChatDto: CreateChatDto) {
+  async createChat(createChatDto: { user1Id: number; user2Id: number }) {
     // Check if users exist
     const users = await this.prismaService.user.findMany({
       where: {
@@ -47,14 +46,21 @@ export class ChatService {
         ],
         is_deleted: false,
       },
+      include: {
+        user1: true,
+        user2: true,
+      },
     });
 
     if (existingChat) {
-      return existingChat;
+      return {
+        data: existingChat,
+        message: 'Chat already exists',
+      };
     }
 
     // Create new chat
-    return this.prismaService.chat.create({
+    const chat = await this.prismaService.chat.create({
       data: {
         user1Id: createChatDto.user1Id,
         user2Id: createChatDto.user2Id,
@@ -64,6 +70,11 @@ export class ChatService {
         user2: true,
       },
     });
+
+    return {
+      data: chat,
+      message: 'Chat created successfully',
+    };
   }
 
   async sendMessage(
@@ -85,7 +96,7 @@ export class ChatService {
     }
 
     // Create message
-    return this.prismaService.message.create({
+    const message = await this.prismaService.message.create({
       data: {
         sender_id: senderId,
         chat_id: chatId,
@@ -96,6 +107,11 @@ export class ChatService {
         sender: true,
       },
     });
+
+    return {
+      data: message,
+      message: 'Message sent successfully',
+    };
   }
 
   async getChatMessages(
@@ -150,40 +166,50 @@ export class ChatService {
         pageSize: query.pageSize,
         totalPages: Math.ceil(total / query.pageSize),
       },
+      message: 'Chat messages fetched successfully',
     };
   }
 
-  async getChatDetails(chatId: number) {
-    try {
-      const chat = await this.prismaService.chat.findUnique({
-        where: { id: chatId },
-        include: {
-          user1: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-          user2: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-        },
-      });
+  async getRawChat(chatId: number) {
+    // Returns the chat record with user1Id and user2Id for gateway logic
+    return this.prismaService.chat.findFirst({
+      where: { id: chatId, is_deleted: false },
+      select: { id: true, user1Id: true, user2Id: true },
+    });
+  }
 
-      if (!chat) {
-        throw new NotFoundException('Chat not found');
-      }
+  async getChatDetails(userId: number, chatId: number) {
+    // Get chat with participants and verify user is a participant
+    const chat = await this.prismaService.chat.findFirst({
+      where: {
+        id: +chatId,
+        is_deleted: false,
+        OR: [{ user1Id: userId }, { user2Id: userId }],
+      },
+      include: {
+        user1: true,
+        user2: true,
+      },
+    });
 
-      return chat;
-    } catch (error) {
-      this.logger.error(`Failed to get chat details: ${error.message}`, error.stack);
-      throw new BadRequestException('Failed to retrieve chat details');
+    if (!chat) {
+      throw new NotFoundException('Chat not found or access denied');
     }
+
+    // Determine the other user in the chat
+    const otherUser = chat.user1Id === userId ? chat.user2 : chat.user1;
+
+    return {
+      id: chat.id,
+      otherUser: {
+        id: otherUser.id,
+        name: otherUser.name,
+        email: otherUser.email,
+        profile: otherUser.profile,
+      },
+      createdAt: chat.created_at,
+      updatedAt: chat.updated_at,
+    };
   }
 
   async getUnreadCount(chatId: number, userId: number): Promise<number> {
@@ -194,8 +220,8 @@ export class ChatService {
         AND: [
           { sender_id: { not: userId } },
           { is_read: false },
-          { is_deleted: false }
-        ]
+          { is_deleted: false },
+        ],
       },
     });
   }
@@ -207,12 +233,12 @@ export class ChatService {
           chat_id: chatId,
           sender_id: { not: userId },
           is_read: false,
-          is_deleted: false
+          is_deleted: false,
         },
         data: {
           is_read: true,
-          read_at: new Date()
-        }
+          read_at: new Date(),
+        },
       });
       return { success: true };
     } catch (error) {
@@ -289,6 +315,7 @@ export class ChatService {
         pageSize: query.pageSize,
         totalPages: Math.ceil(total / query.pageSize),
       },
+      message: 'User chats fetched successfully',
     };
   }
 }

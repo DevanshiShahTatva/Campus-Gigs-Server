@@ -11,11 +11,7 @@ import { MESSAGE_TYPE } from 'src/utils/enums';
 export class CreateChatDto {
   @IsNumber()
   @IsNotEmpty()
-  user1Id: number;
-
-  @IsNumber()
-  @IsNotEmpty()
-  user2Id: number;
+  userId: number;
 }
 
 export class SendMessageDto {

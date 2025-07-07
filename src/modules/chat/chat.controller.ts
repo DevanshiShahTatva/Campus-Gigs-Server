@@ -26,7 +26,7 @@ import {
 // Define custom request interface to extend Express Request
 export interface AuthenticatedRequest extends Request {
   user: {
-    userId: number;
+    id: number;
     email: string;
     role: string;
   };
@@ -43,17 +43,16 @@ export class ChatController {
     @Req() req: AuthenticatedRequest,
     @Body() createChatDto: CreateChatDto,
   ) {
-    // Ensure the authenticated user is one of the chat participants
-    if (
-      req.user.userId !== createChatDto.user1Id &&
-      req.user.userId !== createChatDto.user2Id
-    ) {
+    if (req.user.id === createChatDto.userId) {
       throw new BadRequestException(
-        'You can only create a chat with yourself and another user',
+        'You can only create a chat with another user',
       );
     }
 
-    return this.chatService.createChat(createChatDto);
+    return this.chatService.createChat({
+      user1Id: req.user.id,
+      user2Id: createChatDto.userId,
+    });
   }
 
   @Post(':chatId/messages')
@@ -63,11 +62,7 @@ export class ChatController {
     @Param('chatId') chatId: number,
     @Body() sendMessageDto: SendMessageDto,
   ) {
-    return this.chatService.sendMessage(
-      req.user.userId,
-      +chatId,
-      sendMessageDto,
-    );
+    return this.chatService.sendMessage(req.user.id, +chatId, sendMessageDto);
   }
 
   @Get(':chatId/messages')
@@ -77,7 +72,7 @@ export class ChatController {
     @Param('chatId') chatId: number,
     @Query() query: GetChatMessagesDto,
   ) {
-    return this.chatService.getChatMessages(req.user.userId, +chatId, query);
+    return this.chatService.getChatMessages(req.user.id, +chatId, query);
   }
 
   @Get()
@@ -86,7 +81,7 @@ export class ChatController {
     @Req() req: AuthenticatedRequest,
     @Query() query: GetUserChatsDto,
   ) {
-    return this.chatService.getUserChats(req.user.userId, query);
+    return this.chatService.getUserChats(req.user.id, query);
   }
 
   @Get(':chatId')
@@ -95,38 +90,7 @@ export class ChatController {
     @Req() req: AuthenticatedRequest,
     @Param('chatId') chatId: number,
   ) {
-    const userId = req.user.userId;
-
-    // Get chat with participants
-    const chat = await this.chatService['prismaService'].chat.findFirst({
-      where: {
-        id: +chatId,
-        is_deleted: false,
-        OR: [{ user1Id: userId }, { user2Id: userId }],
-      },
-      include: {
-        user1: true,
-        user2: true,
-      },
-    });
-
-    if (!chat) {
-      throw new NotFoundException('Chat not found or access denied');
-    }
-
-    // Determine the other user in the chat
-    const otherUser = chat.user1Id === userId ? chat.user2 : chat.user1;
-
-    return {
-      id: chat.id,
-      otherUser: {
-        id: otherUser.id,
-        name: otherUser.name,
-        email: otherUser.email,
-        profile: otherUser.profile,
-      },
-      createdAt: chat.created_at,
-      updatedAt: chat.updated_at,
-    };
+    const userId = req.user.id;
+    return this.chatService.getChatDetails(userId, +chatId);
   }
 }

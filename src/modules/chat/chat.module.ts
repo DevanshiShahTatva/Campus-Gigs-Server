@@ -1,7 +1,6 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ChatService } from './chat.service';
-import { JwtModule, JwtService } from '@nestjs/jwt';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 
 import { ChatController } from './chat.controller';
 import { PrismaModule } from '../prisma/prisma.module';
@@ -12,19 +11,7 @@ import { ChatGateway } from './gateways/chat.gateway';
 import { WsJwtAuthGuard } from '../../common/guards/ws-jwt-auth.guard';
 
 @Module({
-  imports: [
-    PrismaModule,
-    forwardRef(() => UserModule),
-    forwardRef(() => AuthModule),
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET'),
-        signOptions: { expiresIn: '1d' },
-      }),
-      inject: [ConfigService],
-    }),
-  ],
+  imports: [PrismaModule, AuthModule, UserModule],
   controllers: [ChatController],
   providers: [
     ChatService,
@@ -36,8 +23,6 @@ import { WsJwtAuthGuard } from '../../common/guards/ws-jwt-auth.guard';
       },
       inject: [JwtService, UserService],
     },
-    // Make sure to provide JwtService if not already provided by AuthModule
-    JwtService,
   ],
   exports: [ChatService, ChatGateway],
 })

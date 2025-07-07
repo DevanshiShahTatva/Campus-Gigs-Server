@@ -22,11 +22,6 @@ export class PaypalService {
   }
 
   private initializePaypalClient() {
-    console.log(
-      this.configService.get<string>('PAYPAL_CLIENT_ID'),
-      this.configService.get<string>('PAYPAL_CLIENT_SECRET'),
-      this.configService.get<string>('NODE_ENV'),
-    );
     this.client = new Client({
       clientCredentialsAuthCredentials: {
         oAuthClientId: this.configService.get<string>('PAYPAL_CLIENT_ID')!,
