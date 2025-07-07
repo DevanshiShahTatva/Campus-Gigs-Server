@@ -12,7 +12,12 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { GigPipelineQueryParams, GigsQueryParams, PostGigsDto } from './gigs.dto';
+import {
+  ChangeGigStatusDto,
+  GigPipelineQueryParams,
+  GigsQueryParams,
+  PostGigsDto,
+} from './gigs.dto';
 import { GigsService } from './gigs.service';
 import { JwtAuthGuard } from 'src/common/guards/jwt.auth.guard';
 import { Request } from 'express';
@@ -51,13 +56,26 @@ export class GigsController {
   }
 
   @Get('/gig-pipeline')
-  getPipelineGigs(@Query() query: GigPipelineQueryParams, @Req() request: Request) {
+  getPipelineGigs(
+    @Query() query: GigPipelineQueryParams,
+    @Req() request: Request,
+  ) {
     const user = request.user as any;
     return this.gigsService.getPipelineGigs(query, user.id);
   }
 
-  @Get(":id")
-  getGigById(@Param("id") id: string, @Req() request: Request) {
+  @Put('/change-status/:gigId')
+  updateGigStatus(
+    @Param('gigId') gigId: string,
+    @Body() body: ChangeGigStatusDto,
+    @Req() request: Request,
+  ) {
+    const user = request.user as any;
+    return this.gigsService.updateGigStatus(gigId, body);
+  }
+
+  @Get(':id')
+  getGigById(@Param('id') id: string, @Req() request: Request) {
     const user = request.user as any;
     return this.gigsService.findById(Number(id), Number(user?.id));
   }

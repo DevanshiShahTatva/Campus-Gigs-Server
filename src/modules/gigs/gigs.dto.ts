@@ -73,6 +73,11 @@ export class PostGigsDto {
   end_date_time: Date;
 }
 
+export class ChangeGigStatusDto {
+  @IsEnum(GIG_STATUS)
+  status: GIG_STATUS;
+}
+
 export class PaginationParams {
   @IsOptional()
   @IsInt()
@@ -104,6 +109,7 @@ export class GigsQueryParams extends PaginationParams {
 
 export class GigPipelineQueryParams extends PaginationParams {
   @IsOptional()
-  @IsEnum(BID_STATUS)
+  @Transform(({ value }) => value?.toLowerCase())
+  @IsEnum(['pending', 'accepted', 'un_started', 'in_progress', 'completed', 'rejected'])
   status?: string;
 }

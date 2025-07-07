@@ -1,8 +1,19 @@
-import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
-import { GigPipelineQueryParams, GigsQueryParams, PostGigsDto } from './gigs.dto';
+import {
+  BadRequestException,
+  HttpStatus,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  ChangeGigStatusDto,
+  GigPipelineQueryParams,
+  GigsQueryParams,
+  PostGigsDto,
+} from './gigs.dto';
 import { AwsS3Service } from '../shared/aws-s3.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { GIG_STATUS } from 'src/utils/enums';
+import { BID_STATUS } from '@prisma/client';
 
 @Injectable()
 export class GigsService {
@@ -38,7 +49,7 @@ export class GigsService {
       },
     });
 
-    return { message: 'Gigs created successfully', data: gig }
+    return { message: 'Gigs created successfully', data: gig };
   }
 
   async get(query: GigsQueryParams) {
@@ -192,12 +203,93 @@ export class GigsService {
     const { page, pageSize, status } = query;
     const skip = (page - 1) * pageSize;
 
-    const baseQuery: any = {
-      AND: [{ bids: { some: { provider_id: user_id } }}],
+    let baseQuery: any = {
+      AND: [
+        { is_deleted: false },
+        { bids: { some: { provider_id: user_id } } },
+      ],
     };
 
-    if (status) {
-      baseQuery.AND.push({ bids: { some: { status: status } } });
+    if (status === BID_STATUS.pending) {
+      baseQuery.AND.push({
+        bids: {
+          some: {
+            provider_id: user_id,
+            status: BID_STATUS.pending,
+          },
+        },
+      });
+    }
+
+    if (status === BID_STATUS.accepted) {
+      baseQuery.AND.push(
+        {
+          bids: {
+            some: {
+              provider_id: user_id,
+              status: BID_STATUS.accepted,
+            },
+          },
+        },
+        {
+          status: GIG_STATUS.UNSTARTED,
+        },
+      );
+    }
+
+    if (status === GIG_STATUS.INPROGRESS) {
+      baseQuery.AND.push(
+        {
+          bids: {
+            some: {
+              provider_id: user_id,
+              status: BID_STATUS.accepted,
+            },
+          },
+        },
+        {
+          status: GIG_STATUS.INPROGRESS,
+        },
+      );
+    }
+
+    if (status === GIG_STATUS.COMPLETED) {
+      baseQuery.AND.push(
+        {
+          bids: {
+            some: {
+              provider_id: user_id,
+              status: BID_STATUS.accepted,
+            },
+          },
+        },
+        {
+          status: GIG_STATUS.COMPLETED,
+        },
+      );
+    }
+
+    if (status === 'rejected') {
+      baseQuery = {
+        AND: [
+          { is_deleted: false },
+          {
+            OR: [
+              {
+                bids: {
+                  some: {
+                    provider_id: user_id,
+                    status: BID_STATUS.rejected,
+                  },
+                },
+              },
+              {
+                status: GIG_STATUS.REJECTED,
+              },
+            ],
+          },
+        ],
+      };
     }
 
     const [items, total] = await Promise.all([
@@ -249,6 +341,40 @@ export class GigsService {
     const meta = { page, pageSize, total, totalPages };
 
     return { data: items, meta, message: 'Gigs fetch successfully' };
+  }
+
+  async updateGigStatus(gigId: string, body: ChangeGigStatusDto) {
+    const findGig = await this.prismaService.gigs.findUnique({
+      where: { id: Number(gigId) },
+    });
+    if (!findGig) {
+      throw new NotFoundException({
+        status: HttpStatus.NOT_FOUND,
+        message: 'Gig not found',
+      });
+    }
+
+    const allowedTransitions: Record<GIG_STATUS, GIG_STATUS[]> = {
+      [GIG_STATUS.UNSTARTED]: [GIG_STATUS.INPROGRESS, GIG_STATUS.REJECTED],
+      [GIG_STATUS.INPROGRESS]: [GIG_STATUS.COMPLETED, GIG_STATUS.REJECTED],
+      [GIG_STATUS.COMPLETED]: [],
+      [GIG_STATUS.REJECTED]: [],
+    };
+
+    if (!allowedTransitions[findGig.status].includes(body.status)) {
+      throw new BadRequestException(
+        `Cannot transition from ${findGig.status} to ${body.status}`,
+      );
+    }
+
+    await this.prismaService.gigs.update({
+      where: { id: Number(gigId) },
+      data: {
+        status: body.status,
+      },
+    });
+
+    return { message: 'Gig status changed successfully' };
   }
 
   async findById(id: number, user_id: number) {
