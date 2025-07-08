@@ -36,3 +36,9 @@ export enum BID_STATUS {
   ACCEPTED = 'accepted',
   REJECTED = 'rejected'
 }
+
+export enum PRIORITY {
+  HIGH = 'high',
+  MEDIUM = 'medium',
+  LOW = 'low'
+}
