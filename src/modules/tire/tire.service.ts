@@ -70,7 +70,6 @@ export class TireService {
 
   async findAll() {
     return this.prismaService.tire.findMany({
-      orderBy: { name: 'asc' },
       where: { is_deleted: false }
     });
   }

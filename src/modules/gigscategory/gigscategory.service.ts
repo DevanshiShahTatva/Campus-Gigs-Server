@@ -67,7 +67,6 @@ export class GigsCategoryService {
     return { data: category, message: 'Category created successfully' };
   }
 
-
   async update(id: number, body: GigsCategoryDto) {
     const existing = await this.prismaService.gigsCategory.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException({ message: 'Category not found' });
@@ -75,7 +74,11 @@ export class GigsCategoryService {
     const { name, description, tire_id, skillIds } = body;
 
     const duplicate = await this.prismaService.gigsCategory.findFirst({
-      where: { id: { not: id }, name },
+      where: {
+        name,
+        is_deleted: false,
+        NOT: { id: id },
+      },
     });
     if (duplicate) throw new BadRequestException({ message: 'Category name already exists' });
 
@@ -128,12 +131,7 @@ export class GigsCategoryService {
 
 
   async delete(id: number) {
-    return await this.prismaService.gigsCategory.update({
-      where: { id },
-      data: {
-        is_deleted: true,
-      },
-    });
+    await this.prismaService.gigsCategory.delete({ where: { id } });
   }
 
   // async getAllIdsByName(search: string) {
