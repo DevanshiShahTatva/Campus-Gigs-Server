@@ -1,8 +1,10 @@
 import { WebSocketGateway, WebSocketServer, OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { UserService } from '../user/user.service';
 
-@WebSocketGateway({ cors: true })
+@WebSocketGateway({ cors: true, namespace: '/notification' })
 @Injectable()
 export class NotificationGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
@@ -10,15 +12,42 @@ export class NotificationGateway implements OnGatewayInit, OnGatewayConnection, 
 
   private logger: Logger = new Logger('NotificationGateway');
 
+  constructor(
+    private readonly jwtService: JwtService,
+    @Inject(forwardRef(() => UserService)) private readonly userService: UserService,
+  ) {}
+
   afterInit(server: Server) {
     this.logger.log('WebSocket server initialized');
+    server.use(async (socket, next) => {
+      try {
+        const token = socket.handshake.auth?.token || socket.handshake.headers['authorization']?.split(' ')[1];
+        if (!token) {
+          return next(new Error('No token provided'));
+        }
+        const payload = this.jwtService.verify(token);
+        const user = await this.userService.findById(payload.id);
+        if (!user) {
+          return next(new Error('User not found'));
+        }
+        (socket as any).user = user;
+        next();
+      } catch (err) {
+        return next(new Error('Invalid token'));
+      }
+    });
   }
 
-  handleConnection(client: Socket) {
+  async handleConnection(client: Socket) {
     this.logger.log(`Client connected: ${client.id}`);
-    client.on('joinRoom', (userId: string) => {
+    client.on('joinRoom', () => {
+      const user = (client as any).user;
+      if (!user || !user.id) {
+        client.disconnect();
+        return;
+      }
+      const userId = user.id;
       client.join(`user_${userId}`);
-      this.logger.log(`Client ${client.id} joined room user_${userId}`);
     });
   }
 
@@ -27,7 +56,7 @@ export class NotificationGateway implements OnGatewayInit, OnGatewayConnection, 
   }
 
   sendProfileUpdateNotification(userId: string, message: string) {
-    // Emit to a specific user room
+    this.logger.log(`Emitting profileUpdate to user_${userId}`);
     this.server.to(`user_${userId}`).emit('profileUpdate', { title: 'Profile Updated', message });
   }
 } 
