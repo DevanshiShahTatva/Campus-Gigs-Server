@@ -41,6 +41,7 @@ import { PrismaModule } from './modules/prisma/prisma.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { BidsModule } from './modules/bids/bids.module';
 import { SkillsModule } from './modules/skills/skills.module';
+import { ChatGateway } from './modules/chat/gateways/chat.gateway';
 
 @Module({
   imports: [
@@ -121,6 +122,7 @@ import { SkillsModule } from './modules/skills/skills.module';
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
+    ChatGateway,
   ],
 })
 export class AppModule implements NestModule {

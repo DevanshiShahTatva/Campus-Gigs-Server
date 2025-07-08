@@ -10,7 +10,6 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
 
 const allowedOrigins = [
   'http://localhost:3000',
-  'http://localhost:4200',
   'https://campusgigsclient.vercel.app',
   'https://campusgigfe.vercel.app',
   'https://campusgigfe.netlify.app',

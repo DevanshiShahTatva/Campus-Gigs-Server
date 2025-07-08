@@ -6,12 +6,14 @@ import {
   WebSocketServer,
   ConnectedSocket,
   MessageBody,
+  WsException,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { UseGuards, Logger, Inject, forwardRef } from '@nestjs/common';
-import { WsJwtAuthGuard } from '../../../common/guards/ws-jwt-auth.guard';
 import { ChatService } from '../chat.service';
 import { UserService } from '../../user/user.service';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 
 interface ChatUpdateData {
   chatId: number;
@@ -38,21 +40,33 @@ interface AuthenticatedSocket extends Socket {
   };
 }
 
+const CHAT_NAMESPACE = '/chat';
+const CHAT_ROOM_PREFIX = 'chat_';
+
+const EVENTS = {
+  USER_PRESENCE: 'userPresence',
+  CHAT_UPDATED: 'chatUpdated',
+  MESSAGES_READ: 'messagesRead',
+  NEW_MESSAGE: 'newMessage',
+  CHAT_NOTIFICATION: 'chatNotification',
+  USER_TYPING: 'userTyping',
+};
+
 @WebSocketGateway({
   cors: {
     origin: process.env.FRONTEND_URLS?.split(',') || '*',
     methods: ['GET', 'POST'],
     credentials: true,
   },
-  namespace: '/chat',
+  namespace: CHAT_NAMESPACE,
 })
-@UseGuards(WsJwtAuthGuard)
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
-  @WebSocketServer() server: Server;
+  @WebSocketServer() private server: Server;
   private readonly logger = new Logger(ChatGateway.name);
 
   // Track connected users and their socket IDs
   private userSockets = new Map<number, Set<string>>();
+
   // Track user presence
   private userPresence = new Map<number, UserPresence>();
 
@@ -61,102 +75,127 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly chatService: ChatService,
     @Inject(forwardRef(() => UserService))
     private readonly userService: UserService,
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
   ) {}
 
-  async handleConnection(client: AuthenticatedSocket) {
+  /**
+   * Handle new client connection
+   */
+  public async handleConnection(client: AuthenticatedSocket): Promise<void> {
     try {
-      const { user } = client.data;
-      if (!user?.id) {
-        throw new Error('Invalid user data');
+      const token = this.extractTokenFromHeader(client.handshake);
+      if (!token) {
+        this.logger.warn('No authentication token provided');
+        throw new WsException('Unauthorized: No token provided');
       }
 
-      // Add socket to user's socket set
-      if (!this.userSockets.has(user.id)) {
-        this.userSockets.set(user.id, new Set());
-      }
-      this.userSockets.get(user.id)?.add(client.id);
+      const payload = await this.jwtService.verify(token, {
+        secret: this.configService.get<string>('JWT_SECRET'),
+      });
 
-      // Update user presence
-      const currentPresence = this.userPresence.get(user.id);
+      if (!payload?.id) {
+        throw new WsException('Unauthorized: Invalid token payload');
+      }
+
+      const user = await this.userService.findById(payload.id);
+      if (!user) {
+        this.logger.warn(`User not found for ID: ${payload.id}`);
+        throw new WsException('Unauthorized: User not found');
+      }
+
+      client.data = {
+        ...(client.data || {}),
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name || 'User',
+          role: user.role,
+        },
+      };
+
+      const userId = client.data.user.id;
+
+      this.addSocketForUser(userId, client.id);
+
+      const currentPresence = this.userPresence.get(userId);
       const wasOffline =
         !currentPresence || currentPresence.status === 'offline';
 
-      this.userPresence.set(user.id, {
-        userId: user.id,
+      this.userPresence.set(userId, {
+        userId,
         status: 'online',
         lastSeen: new Date(),
       });
 
-      // Notify others if user just came online
       if (wasOffline) {
-        this.broadcastPresenceChange(user.id, 'online');
+        this.broadcastPresenceChange(userId, 'online');
       }
 
-      this.logger.log(`User ${user.id} connected with socket ${client.id}`);
+      this.logger.log(`User ${userId} connected with socket ${client.id}`);
     } catch (error) {
       this.logger.error('Connection error:', error);
       client.disconnect(true);
     }
   }
 
-  async handleDisconnect(client: AuthenticatedSocket) {
-    const { user } = client.data;
-    if (!user?.id) return;
+  /**
+   * Handle client disconnect
+   */
+  public async handleDisconnect(client: AuthenticatedSocket): Promise<void> {
+    const userId = client.data?.user?.id;
+    if (!userId) return;
 
-    // Remove socket from user's socket set
-    const userSockets = this.userSockets.get(user.id);
-    if (userSockets) {
-      userSockets.delete(client.id);
+    this.removeSocketForUser(userId, client.id);
 
-      // If no more sockets for this user, mark as offline
-      if (userSockets.size === 0) {
-        this.userSockets.delete(user.id);
-        await this.updateUserOffline(user.id);
-      }
+    // If no more sockets for this user, update presence
+    if (!this.userSockets.has(userId)) {
+      await this.updateUserOffline(userId);
     }
 
-    this.logger.log(`User ${user.id} disconnected (${client.id})`);
+    this.logger.log(`User ${userId} disconnected (${client.id})`);
   }
 
+  /**
+   * Join a chat room
+   */
   @SubscribeMessage('joinChat')
-  async handleJoinChat(
-    @ConnectedSocket() client: Socket,
+  public async handleJoinChat(
+    @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() chatId: number,
-  ) {
+  ): Promise<void> {
     try {
-      const user = client.data.user;
-      await client.join(`chat_${chatId}`);
-      console.log(`User ${user.userId} joined chat ${chatId}`);
+      await client.join(this.getChatRoomName(chatId));
+      this.logger.log(`User ${client.data.user.id} joined chat ${chatId}`);
     } catch (error) {
-      console.error('Error joining chat:', error);
+      this.logger.error('Error joining chat:', error);
     }
   }
 
+  /**
+   * Handle sending a message
+   */
   @SubscribeMessage('sendMessage')
-  async handleMessage(
+  public async handleMessage(
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() data: { chatId: number; message: string; type: string },
-  ) {
+  ): Promise<{ success: boolean; message?: any; error?: string }> {
     try {
       const { user } = client.data;
       const { chatId, message, type } = data;
 
-      // Save message to database
       const savedMessage = await this.chatService.sendMessage(user.id, chatId, {
         message,
         messageType: type as any,
       });
 
-      // Broadcast to all clients in the chat room
-      this.server.to(`chat_${chatId}`).emit('newMessage', {
+      this.server.to(this.getChatRoomName(chatId)).emit(EVENTS.NEW_MESSAGE, {
         ...savedMessage,
         sender: { id: user.id, name: user.name || 'User' },
       });
 
-      // Notify about chat update (for sidebar)
       await this.notifyChatUpdate(chatId, user.id, savedMessage);
 
-      // Notify the other participant if they're online
       const chat = await this.chatService.getRawChat(chatId);
       if (!chat) {
         this.logger.error(
@@ -164,46 +203,159 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         );
         return { success: false, error: 'Chat not found' };
       }
-      const otherUserId =
-        Number(chat.user1Id) === Number(user.id) ? chat.user2Id : chat.user1Id;
-      const otherUserSockets = this.userSockets.get(otherUserId);
 
-      if (otherUserSockets && otherUserSockets.size > 0) {
-        // Convert Set to array for socket.io
-        const socketIds = Array.from(otherUserSockets);
-        socketIds.forEach((socketId) => {
-          this.server.to(socketId).emit('chatNotification', {
-            chatId,
-            message: savedMessage,
-            sender: { id: user.id, name: user.name || 'User' },
-          });
-        });
-      }
+      const otherUserId =
+        chat.user1Id === user.id ? chat.user2Id : chat.user1Id;
+      this.emitToUserSockets(otherUserId, EVENTS.CHAT_NOTIFICATION, {
+        chatId,
+        message: savedMessage,
+        sender: { id: user.id, name: user.name || 'User' },
+      });
 
       return { success: true, message: savedMessage };
     } catch (error) {
-      console.error('Error sending message:', error);
+      this.logger.error('Error sending message:', error);
       return { success: false, error: error.message };
     }
   }
 
+  /**
+   * Handle typing indicator
+   */
   @SubscribeMessage('typing')
-  handleTyping(
-    @ConnectedSocket() client: Socket,
+  public handleTyping(
+    @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() data: { chatId: number; isTyping: boolean },
-  ) {
-    const user = client.data.user;
-    client.to(`chat_${data.chatId}`).emit('userTyping', {
-      userId: user.userId,
+  ): void {
+    const userId = client.data.user.id;
+    client.to(this.getChatRoomName(data.chatId)).emit(EVENTS.USER_TYPING, {
+      userId,
       isTyping: data.isTyping,
     });
   }
 
-  private async updateUserOffline(userId: number) {
-    const currentPresence = this.userPresence.get(userId);
-    const wasOnline = currentPresence?.status === 'online';
+  /**
+   * Mark messages as read
+   */
+  @SubscribeMessage('markAsRead')
+  public async handleMarkAsRead(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() data: { chatId: number },
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const userId = client.data.user.id;
+      await this.chatService.markMessagesAsRead(data.chatId, userId);
 
-    if (wasOnline) {
+      const updateData = {
+        chatId: data.chatId,
+        unreadCount: 0,
+        lastReadAt: new Date(),
+      };
+
+      this.emitToUserSockets(userId, EVENTS.MESSAGES_READ, updateData);
+
+      return { success: true };
+    } catch (error) {
+      this.logger.error('Error marking messages as read:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Get user status (online/offline)
+   */
+  @SubscribeMessage('getUserStatus')
+  public async handleGetUserStatus(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() userId: number,
+  ): Promise<UserPresence & { userId: number }> {
+    const presence: UserPresence = this.userPresence.get(userId) || {
+      userId,
+      status: 'offline',
+      lastSeen: undefined,
+    };
+    return presence;
+  }
+
+  /**
+   * Get list of online users
+   */
+  @SubscribeMessage('getOnlineUsers')
+  public async handleGetOnlineUsers(
+    @ConnectedSocket() client: AuthenticatedSocket,
+  ): Promise<{ onlineUsers: { userId: number; lastSeen?: string }[] }> {
+    const onlineUsers = Array.from(this.userPresence.values())
+      .filter((presence) => presence.status === 'online')
+      .map((presence) => ({
+        userId: presence.userId,
+        lastSeen: presence.lastSeen?.toISOString(),
+      }));
+
+    return { onlineUsers };
+  }
+
+  /**
+   * Extract token from handshake headers or query
+   */
+  private extractTokenFromHeader(handshake: any): string | undefined {
+    try {
+      const authHeader = handshake?.headers?.authorization;
+      if (authHeader?.startsWith('Bearer ')) {
+        return authHeader.split(' ')[1];
+      }
+      return handshake?.auth?.token || handshake?.query?.token;
+    } catch (error) {
+      this.logger.error('Error extracting token:', error);
+      return undefined;
+    }
+  }
+
+  /**
+   * Add socket id to the user's socket set
+   */
+  private addSocketForUser(userId: number, socketId: string): void {
+    if (!this.userSockets.has(userId)) {
+      this.userSockets.set(userId, new Set());
+    }
+    this.userSockets.get(userId)?.add(socketId);
+  }
+
+  /**
+   * Remove socket id from the user's socket set
+   */
+  private removeSocketForUser(userId: number, socketId: string): void {
+    const sockets = this.userSockets.get(userId);
+    if (!sockets) return;
+
+    sockets.delete(socketId);
+    if (sockets.size === 0) {
+      this.userSockets.delete(userId);
+    }
+  }
+
+  /**
+   * Convert a userId to their connected socket IDs array
+   */
+  private getSocketIds(userId: number): string[] {
+    return Array.from(this.userSockets.get(userId) ?? []);
+  }
+
+  /**
+   * Emit an event to all connected sockets of a user
+   */
+  private emitToUserSockets(userId: number, event: string, payload: any): void {
+    const socketIds = this.getSocketIds(userId);
+    socketIds.forEach((socketId) => {
+      this.server.to(socketId).emit(event, payload);
+    });
+  }
+
+  /**
+   * Update user presence to offline
+   */
+  private async updateUserOffline(userId: number): Promise<void> {
+    const presence = this.userPresence.get(userId);
+    if (presence?.status === 'online') {
       this.userPresence.set(userId, {
         userId,
         status: 'offline',
@@ -213,50 +365,36 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  /**
+   * Broadcast presence change to all users
+   */
   private broadcastPresenceChange(
     userId: number,
     status: 'online' | 'offline',
-  ) {
-    // Notify all users who have a chat with this user
-    this.server.emit('userPresence', {
+  ): void {
+    this.server.emit(EVENTS.USER_PRESENCE, {
       userId,
       status,
       timestamp: new Date().toISOString(),
     });
   }
 
-  @SubscribeMessage('getUserStatus')
-  async handleGetUserStatus(
-    @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() userId: number,
-  ) {
-    const status = this.userPresence.get(userId) || {
-      status: 'offline' as const,
-      lastSeen: null,
-    };
-    return { userId, ...status };
+  /**
+   * Get chat room name for socket.io rooms
+   */
+  private getChatRoomName(chatId: number): string {
+    return `${CHAT_ROOM_PREFIX}${chatId}`;
   }
 
-  @SubscribeMessage('getOnlineUsers')
-  async handleGetOnlineUsers(@ConnectedSocket() client: AuthenticatedSocket) {
-    const onlineUsers = Array.from(this.userPresence.entries())
-      .filter(([_, presence]) => presence.status === 'online')
-      .map(([userId, presence]) => ({
-        userId,
-        lastSeen: presence.lastSeen?.toISOString(),
-      }));
-
-    return { onlineUsers };
-  }
-
-  // Helper method to get socket instance
-  getServer(): Server {
-    return this.server;
-  }
-
-  private async notifyChatUpdate(chatId: number, userId: number, message: any) {
+  /**
+   * Notify chat update to sender and recipient
+   */
+  private async notifyChatUpdate(
+    chatId: number,
+    userId: number,
+    message: any,
+  ): Promise<void> {
     try {
-      // Get the chat details
       const chat = await this.chatService.getRawChat(chatId);
       if (!chat) {
         this.logger.error(
@@ -264,15 +402,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         );
         return;
       }
+
       const otherUserId = chat.user1Id === userId ? chat.user2Id : chat.user1Id;
 
-      // Get the updated unread count for the recipient
       const unreadCount = await this.chatService.getUnreadCount(
         chatId,
         otherUserId,
       );
 
-      // Prepare the update data
       const updateData: ChatUpdateData = {
         chatId,
         lastMessage: message.message,
@@ -281,26 +418,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         senderId: userId,
       };
 
-      // Get the recipient's sockets
-      const recipientSockets = this.userSockets.get(otherUserId);
-      if (recipientSockets) {
-        const socketIds = Array.from(recipientSockets);
-        socketIds.forEach((socketId) => {
-          this.server.to(socketId).emit('chatUpdated', updateData);
-        });
-      }
+      this.emitToUserSockets(otherUserId, EVENTS.CHAT_UPDATED, updateData);
 
-      // Also update the sender's chat list (in case they have multiple tabs open)
-      const senderSockets = this.userSockets.get(userId);
-      if (senderSockets) {
-        const socketIds = Array.from(senderSockets);
-        socketIds.forEach((socketId) => {
-          this.server.to(socketId).emit('chatUpdated', {
-            ...updateData,
-            unreadCount: 0, // Sender has read the message they just sent
-          });
-        });
-      }
+      this.emitToUserSockets(userId, EVENTS.CHAT_UPDATED, {
+        ...updateData,
+        unreadCount: 0, // Sender has read the message they just sent
+      });
     } catch (error) {
       this.logger.error(
         `Error notifying chat update: ${error.message}`,
@@ -309,34 +432,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  @SubscribeMessage('markAsRead')
-  async handleMarkAsRead(
-    @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { chatId: number },
-  ) {
-    try {
-      const user = client.data.user;
-      await this.chatService.markMessagesAsRead(data.chatId, user.id);
-
-      // Notify all tabs that messages were read
-      const updateData = {
-        chatId: data.chatId,
-        unreadCount: 0,
-        lastReadAt: new Date(),
-      };
-
-      const userSockets = this.userSockets.get(user.id);
-      if (userSockets) {
-        const socketIds = Array.from(userSockets);
-        socketIds.forEach((socketId) => {
-          this.server.to(socketId).emit('messagesRead', updateData);
-        });
-      }
-
-      return { success: true };
-    } catch (error) {
-      this.logger.error('Error marking messages as read:', error);
-      return { success: false, error: error.message };
-    }
+  /**
+   * Expose server instance
+   */
+  public getServer(): Server {
+    return this.server;
   }
 }

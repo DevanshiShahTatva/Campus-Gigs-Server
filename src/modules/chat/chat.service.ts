@@ -7,7 +7,6 @@ import {
 
 import { PrismaService } from '../prisma/prisma.service';
 import {
-  CreateChatDto,
   SendMessageDto,
   GetChatMessagesDto,
   GetUserChatsDto,

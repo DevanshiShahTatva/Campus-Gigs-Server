@@ -7,23 +7,17 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { UserModule } from '../user/user.module';
 import { UserService } from '../user/user.service';
 import { AuthModule } from '../auth/auth.module';
-import { ChatGateway } from './gateways/chat.gateway';
-import { WsJwtAuthGuard } from '../../common/guards/ws-jwt-auth.guard';
+// import { ChatGateway } from './gateways/chat.gateway';
+// import { WsJwtAuthGuard } from '../../common/guards/ws-jwt-auth.guard';
 
 @Module({
   imports: [PrismaModule, AuthModule, UserModule],
   controllers: [ChatController],
   providers: [
     ChatService,
-    ChatGateway,
-    {
-      provide: WsJwtAuthGuard,
-      useFactory: (jwtService: JwtService, userService: UserService) => {
-        return new WsJwtAuthGuard(jwtService, userService);
-      },
-      inject: [JwtService, UserService],
-    },
   ],
-  exports: [ChatService, ChatGateway],
+  exports: [
+    ChatService,
+  ],
 })
 export class ChatModule {}
