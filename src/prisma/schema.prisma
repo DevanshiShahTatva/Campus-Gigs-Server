@@ -70,6 +70,12 @@ enum OUTCOME {
   user_won
 }
 
+enum PRIORITY {
+  high
+  medium
+  low
+}
+
 model User {
   id                     Int                   @id @default(autoincrement())
   email                  String                @unique
@@ -195,6 +201,7 @@ model Gigs {
   certifications  String[]     @default([])
   profile_type    PROFILE_TYPE @default(user)
   status          GIG_STATUS   @default(un_started)
+  priority        PRIORITY     @default(low)
   start_date_time DateTime
   end_date_time   DateTime
   created_at      DateTime     @default(now())

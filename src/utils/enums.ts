@@ -42,3 +42,9 @@ export enum MESSAGE_TYPE {
   IMAGE = 'image',
   FILE = 'file',
 }
+
+export enum PRIORITY {
+  HIGH = 'high',
+  MEDIUM = 'medium',
+  LOW = 'low'
+}

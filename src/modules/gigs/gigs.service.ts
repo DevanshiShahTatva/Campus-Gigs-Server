@@ -1,8 +1,20 @@
-import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
-import { GigsQueryParams, PostGigsDto } from './gigs.dto';
+import {
+  BadRequestException,
+  HttpStatus,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  ChangeGigPriorityDto,
+  ChangeGigStatusDto,
+  GigPipelineQueryParams,
+  GigsQueryParams,
+  PostGigsDto,
+} from './gigs.dto';
 import { AwsS3Service } from '../shared/aws-s3.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { GIG_STATUS } from 'src/utils/enums';
+import { BID_STATUS } from '@prisma/client';
 
 @Injectable()
 export class GigsService {
@@ -38,7 +50,7 @@ export class GigsService {
       },
     });
 
-    return { message: 'Gigs created successfully', data: gig }
+    return { message: 'Gigs created successfully', data: gig };
   }
 
   async get(query: GigsQueryParams) {
@@ -110,11 +122,20 @@ export class GigsService {
               },
             },
           },
+          _count: {
+            select: {
+              bids: {
+                where: {
+                  is_deleted: false,
+                },
+              },
+            },
+          },
         },
       }),
       this.prismaService.gigs.count({ where: baseQuery }),
     ]);
-
+  
     const totalPages = Math.ceil(total / pageSize);
     const meta = { page, pageSize, total, totalPages };
 
@@ -143,6 +164,7 @@ export class GigsService {
         skip,
         take: pageSize,
         include: {
+          bids: true,
           user: {
             select: {
               id: true,
@@ -185,6 +207,213 @@ export class GigsService {
     const meta = { page, pageSize, total, totalPages };
 
     return { data: items, meta, message: 'Gigs fetch successfully' };
+  }
+
+  async getPipelineGigs(query: GigPipelineQueryParams, user_id: string) {
+    const { page, pageSize, status } = query;
+    const skip = (page - 1) * pageSize;
+
+    let baseQuery: any = {
+      AND: [
+        { is_deleted: false },
+        { bids: { some: { provider_id: user_id } } },
+      ],
+    };
+
+    if (status === BID_STATUS.pending) {
+      baseQuery.AND.push({
+        bids: {
+          some: {
+            provider_id: user_id,
+            status: BID_STATUS.pending,
+          },
+        },
+      });
+    }
+
+    if (status === BID_STATUS.accepted) {
+      baseQuery.AND.push(
+        {
+          bids: {
+            some: {
+              provider_id: user_id,
+              status: BID_STATUS.accepted,
+            },
+          },
+        },
+        {
+          status: GIG_STATUS.UNSTARTED,
+        },
+      );
+    }
+
+    if (status === GIG_STATUS.INPROGRESS) {
+      baseQuery.AND.push(
+        {
+          bids: {
+            some: {
+              provider_id: user_id,
+              status: BID_STATUS.accepted,
+            },
+          },
+        },
+        {
+          status: GIG_STATUS.INPROGRESS,
+        },
+      );
+    }
+
+    if (status === GIG_STATUS.COMPLETED) {
+      baseQuery.AND.push(
+        {
+          bids: {
+            some: {
+              provider_id: user_id,
+              status: BID_STATUS.accepted,
+            },
+          },
+        },
+        {
+          status: GIG_STATUS.COMPLETED,
+        },
+      );
+    }
+
+    if (status === 'rejected') {
+      baseQuery = {
+        AND: [
+          { is_deleted: false },
+          {
+            OR: [
+              {
+                bids: {
+                  some: {
+                    provider_id: user_id,
+                    status: BID_STATUS.rejected,
+                  },
+                },
+              },
+              {
+                status: GIG_STATUS.REJECTED,
+              },
+            ],
+          },
+        ],
+      };
+    }
+
+    const [items, total] = await Promise.all([
+      this.prismaService.gigs.findMany({
+        where: baseQuery,
+        skip,
+        take: pageSize,
+        include: {
+          bids: true,
+          user: {
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              role: true,
+              profile: true,
+              professional_interests: true,
+              extracurriculars: true,
+              certifications: true,
+              education: true,
+              skills: true,
+            },
+          },
+          skills: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          gig_category: {
+            select: {
+              id: true,
+              name: true,
+              description: true,
+              tire: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+      this.prismaService.gigs.count({ where: baseQuery }),
+    ]);
+
+    const totalPages = Math.ceil(total / pageSize);
+    const meta = { page, pageSize, total, totalPages };
+
+    return { data: items, meta, message: 'Gigs fetch successfully' };
+  }
+
+  async updateGigStatus(gigId: string, body: ChangeGigStatusDto) {
+    const findGig = await this.prismaService.gigs.findUnique({
+      where: { id: Number(gigId) },
+    });
+    if (!findGig) {
+      throw new NotFoundException({
+        status: HttpStatus.NOT_FOUND,
+        message: 'Gig not found',
+      });
+    }
+
+    const allowedTransitions: Record<GIG_STATUS, GIG_STATUS[]> = {
+      [GIG_STATUS.UNSTARTED]: [GIG_STATUS.INPROGRESS, GIG_STATUS.REJECTED],
+      [GIG_STATUS.INPROGRESS]: [GIG_STATUS.COMPLETED, GIG_STATUS.REJECTED],
+      [GIG_STATUS.COMPLETED]: [],
+      [GIG_STATUS.REJECTED]: [],
+    };
+
+    if (!allowedTransitions[findGig.status].includes(body.status)) {
+      throw new BadRequestException(
+        `Cannot transition from ${findGig.status} to ${body.status}`,
+      );
+    }
+
+    await this.prismaService.gigs.update({
+      where: { id: Number(gigId) },
+      data: {
+        status: body.status,
+      },
+    });
+
+    return { message: 'Gig status changed successfully' };
+  }
+
+  async updateGigPriority(gigId: string, body: ChangeGigPriorityDto) {
+    const findGig = await this.prismaService.gigs.findUnique({
+      where: { id: Number(gigId) },
+    });
+
+    if (!findGig) {
+      throw new NotFoundException({
+        status: HttpStatus.NOT_FOUND,
+        message: 'Gig not found',
+      });
+    }
+
+    if (findGig.status !== "in_progress") {
+      throw new BadRequestException({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'Priority can be set for only in progress gigs',
+      });
+    }
+
+    await this.prismaService.gigs.update({
+      where: { id: Number(gigId) },
+      data: {
+        priority: body.priority,
+      },
+    });
+
+    return { message: 'Gig priority updated successfully' };
   }
 
   async findById(id: number, user_id: number) {
