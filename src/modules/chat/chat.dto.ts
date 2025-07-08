@@ -5,6 +5,7 @@ import {
   IsEnum,
   IsOptional,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 import { MESSAGE_TYPE } from 'src/utils/enums';
 
@@ -23,8 +24,6 @@ export class SendMessageDto {
   @IsOptional()
   messageType: MESSAGE_TYPE = MESSAGE_TYPE.TEXT;
 }
-
-import { Type } from 'class-transformer';
 
 export class GetChatMessagesDto {
   @Type(() => Number)
