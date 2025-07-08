@@ -218,10 +218,12 @@ export class BuyPlanService {
       return new NotFoundException('Subscription plan not found');
     }
 
+    console.log(subscriptionPlan,"subscriptionPlannnnn");
     const { data: order } = await this.paypalService.createOrder(
       subscriptionPlan.price.toString(),
     );
 
+    console.log(order,"orderrrr");
     if (!order?.id) {
       return new BadRequestException('Failed to create PayPal order');
     }
