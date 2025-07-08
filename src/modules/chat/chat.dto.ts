@@ -24,22 +24,27 @@ export class SendMessageDto {
   messageType: MESSAGE_TYPE = MESSAGE_TYPE.TEXT;
 }
 
+import { Type } from 'class-transformer';
+
 export class GetChatMessagesDto {
+  @Type(() => Number)
   @IsNumber()
   @IsNotEmpty()
   page: number = 1;
 
+  @Type(() => Number)
   @IsNumber()
   @IsNotEmpty()
   pageSize: number = 20;
 }
 
 export class GetUserChatsDto {
+  @Type(() => Number)
   @IsNumber()
   @IsNotEmpty()
   page: number = 1;
 
-  @IsNumber()
+  @Type(() => Number)
   @IsNotEmpty()
   pageSize: number = 10;
 }

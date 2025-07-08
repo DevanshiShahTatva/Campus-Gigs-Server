@@ -118,6 +118,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       this.addSocketForUser(userId, client.id);
 
+      // Emit socketRegistered event to the connected client
+      client.emit('socketRegistered', {
+        success: true,
+        message: 'Socket registered and authenticated',
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name || 'User',
+          role: user.role,
+        },
+      });
+
       const currentPresence = this.userPresence.get(userId);
       const wasOffline =
         !currentPresence || currentPresence.status === 'offline';

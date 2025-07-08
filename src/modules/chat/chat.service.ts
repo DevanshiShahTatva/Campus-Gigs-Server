@@ -144,7 +144,7 @@ export class ChatService {
           sender: true,
         },
         orderBy: {
-          created_at: 'desc',
+          created_at: 'asc',
         },
         skip,
         take: query.pageSize,

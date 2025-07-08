@@ -38,7 +38,7 @@ export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 
   @Post()
-  @Roles('user', 'admin')
+  @Roles('user')
   async createChat(
     @Req() req: AuthenticatedRequest,
     @Body() createChatDto: CreateChatDto,
@@ -56,17 +56,18 @@ export class ChatController {
   }
 
   @Post(':chatId/messages')
-  @Roles('user', 'admin')
+  @Roles('user')
   async sendMessage(
     @Req() req: AuthenticatedRequest,
     @Param('chatId') chatId: number,
     @Body() sendMessageDto: SendMessageDto,
   ) {
+    console.log('User sending message:', req.user.id, chatId, sendMessageDto);
     return this.chatService.sendMessage(req.user.id, +chatId, sendMessageDto);
   }
 
   @Get(':chatId/messages')
-  @Roles('user', 'admin')
+  @Roles('user')
   async getChatMessages(
     @Req() req: AuthenticatedRequest,
     @Param('chatId') chatId: number,
@@ -76,7 +77,7 @@ export class ChatController {
   }
 
   @Get()
-  @Roles('user', 'admin')
+  @Roles('user')
   async getUserChats(
     @Req() req: AuthenticatedRequest,
     @Query() query: GetUserChatsDto,
@@ -85,7 +86,7 @@ export class ChatController {
   }
 
   @Get(':chatId')
-  @Roles('user', 'admin')
+  @Roles('user')
   async getChatDetails(
     @Req() req: AuthenticatedRequest,
     @Param('chatId') chatId: number,
