@@ -9,7 +9,7 @@ import {
   IsString,
   Min,
 } from 'class-validator';
-import { GIG_STATUS, PAYMENT_TYPE, PROFILE_TYPE } from 'src/utils/enums';
+import { BID_STATUS, GIG_STATUS, PAYMENT_TYPE, PROFILE_TYPE } from 'src/utils/enums';
 
 export class PostGigsDto {
   @IsOptional()
@@ -73,6 +73,11 @@ export class PostGigsDto {
   end_date_time: Date;
 }
 
+export class ChangeGigStatusDto {
+  @IsEnum(GIG_STATUS)
+  status: GIG_STATUS;
+}
+
 export class PaginationParams {
   @IsOptional()
   @IsInt()
@@ -100,4 +105,11 @@ export class GigsQueryParams extends PaginationParams {
   @IsOptional()
   @IsEnum(PROFILE_TYPE)
   profile_type?: string;
+}
+
+export class GigPipelineQueryParams extends PaginationParams {
+  @IsOptional()
+  @Transform(({ value }) => value?.toLowerCase())
+  @IsEnum(['pending', 'accepted', 'un_started', 'in_progress', 'completed', 'rejected'])
+  status?: string;
 }
