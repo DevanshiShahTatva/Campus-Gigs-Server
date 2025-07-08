@@ -10,7 +10,7 @@ export class TireService {
 
   async create(body: TireDto) {
     const findSameName = await this.prismaService.tire.findFirst({
-      where: { name: body.name },
+      where: { name: body.name, is_deleted: false },
     });
     if (findSameName) {
       throw new BadRequestException({
@@ -24,17 +24,20 @@ export class TireService {
 
   async update(id: number, body: TireDto) {
     const findSameName = await this.prismaService.tire.findFirst({
-      where: { name: body.name, NOT: { id } },
+      where: {
+        name: body.name,
+        is_deleted: false,
+        NOT: {
+          id: id, // exclude the current record from duplicate check
+        },
+      },
     });
-    if (!findSameName) {
-      throw new BadRequestException({
-        status: HttpStatus.CONFLICT,
-        message: `The name '${body.name}' is already been taken`,
-      });
+    if (findSameName) {
+      throw new BadRequestException(`Tier with name '${body.name}' already exists.`);
     }
 
     return await this.prismaService.tire.update({
-      where: { id },
+      where: { id, is_deleted: false },
       data: body,
     });
   }
@@ -48,6 +51,19 @@ export class TireService {
     });
   }
 
+  async getTiersDropdownOptions() {
+    return this.prismaService.tire.findMany({
+      where: { is_deleted: false },
+      select: {
+        id: true,
+        name: true,
+      },
+      orderBy: {
+        name: 'asc', // optional: alphabetically sorted
+      },
+    });
+  }
+
   async findAll() {
     return this.prismaService.tire.findMany({
       orderBy: { name: 'asc' },
@@ -56,7 +72,7 @@ export class TireService {
   }
 
   async findById(id: number) {
-    return await this.prismaService.tire.findUnique({ where: { id } });
+    return await this.prismaService.tire.findUnique({ where: { id, is_deleted: false } });
   }
 
   // async get(query: TireQueryParams) {
