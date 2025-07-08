@@ -7,7 +7,7 @@ export class SkillsService {
     constructor(private prisma: PrismaService) { }
 
     async getSkillDropdownOptions() {
-        return this.prisma.skills.findMany({
+        const skills = await this.prisma.skills.findMany({
             where: { is_deleted: false },
             select: {
                 id: true,
@@ -17,6 +17,10 @@ export class SkillsService {
                 name: 'asc', // optional: alphabetically sorted
             },
         });
+        return skills.map(skill => ({
+            id: String(skill.id),
+            label: skill.name,
+        }));
     }
 
     async getAllSkills() {

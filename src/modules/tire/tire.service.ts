@@ -15,7 +15,7 @@ export class TireService {
     if (findSameName) {
       throw new BadRequestException({
         status: HttpStatus.CONFLICT,
-        message: `The name '${body.name}' is already been taken`,
+        message: `Tier with name '${body.name}' already exists.`,
       });
     }
 
@@ -52,7 +52,7 @@ export class TireService {
   }
 
   async getTiersDropdownOptions() {
-    return this.prismaService.tire.findMany({
+    const tiers = await this.prismaService.tire.findMany({
       where: { is_deleted: false },
       select: {
         id: true,
@@ -62,6 +62,10 @@ export class TireService {
         name: 'asc', // optional: alphabetically sorted
       },
     });
+    return tiers.map(item => ({
+      id: String(item.id),
+      label: item.name,
+    }));
   }
 
   async findAll() {
