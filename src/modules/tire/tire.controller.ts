@@ -47,6 +47,10 @@ export class TireController {
     const data = await this.tireService.findAll();
     return { data, message: 'Tiers fetched successfully' };
   }
+  @Get('dropdown')
+  getDropdownOptions() {
+    return this.tireService.getTiersDropdownOptions();
+  }
 
   @Get(':id')
   async findById(@Param('id') id: string) {
