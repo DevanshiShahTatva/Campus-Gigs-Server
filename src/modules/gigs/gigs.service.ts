@@ -110,11 +110,20 @@ export class GigsService {
               },
             },
           },
+          _count: {
+            select: {
+              bids: {
+                where: {
+                  is_deleted: false,
+                },
+              },
+            },
+          },
         },
       }),
       this.prismaService.gigs.count({ where: baseQuery }),
     ]);
-
+  
     const totalPages = Math.ceil(total / pageSize);
     const meta = { page, pageSize, total, totalPages };
 
