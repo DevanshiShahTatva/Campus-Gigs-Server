@@ -14,6 +14,11 @@ export class SkillsController {
         return this.skillsService.getAllSkills();
     }
 
+    @Get('dropdown')
+    getDropdownOptions() {
+        return this.skillsService.getSkillDropdownOptions();
+    }
+
     @Get(':id')
     findOne(@Param('id') id: string) {
         return this.skillsService.getSkillById(+id);

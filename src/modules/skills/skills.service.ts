@@ -6,6 +6,38 @@ import { SkillDto } from './skills.dto';
 export class SkillsService {
     constructor(private prisma: PrismaService) { }
 
+    async getSkillDropdownOptions() {
+        return this.prisma.skills.findMany({
+            where: { is_deleted: false },
+            select: {
+                id: true,
+                name: true,
+            },
+            orderBy: {
+                name: 'asc', // optional: alphabetically sorted
+            },
+        });
+    }
+
+    async getAllSkills() {
+        return this.prisma.skills.findMany({
+            where: { is_deleted: false },
+            include: {
+                category: {
+                    select: {
+                        name: true,
+                    },
+                },
+            },
+        });
+    }
+
+    async getSkillById(id: number) {
+        return this.prisma.skills.findUnique({
+            where: { id },
+        });
+    }
+
     async createSkill(dto: SkillDto) {
         // Check if name already exists (and not deleted)
         const exists = await this.prisma.skills.findFirst({
@@ -26,19 +58,21 @@ export class SkillsService {
         });
     }
 
-    async getAllSkills() {
-        return this.prisma.skills.findMany({
-            where: { is_deleted: false },
-        });
-    }
 
-    async getSkillById(id: number) {
-        return this.prisma.skills.findUnique({
-            where: { id },
-        });
-    }
 
     async updateSkill(id: number, dto: SkillDto) {
+        const findSameName = await this.prisma.skills.findFirst({
+            where: {
+                name: dto.name,
+                NOT: {
+                    id: id, // exclude the current record from duplicate check
+                },
+            },
+        });
+        if (findSameName) {
+            throw new BadRequestException(`Skill with name '${dto.name}' already exists.`);
+        }
+
         return this.prisma.skills.update({
             where: { id },
             data: {
