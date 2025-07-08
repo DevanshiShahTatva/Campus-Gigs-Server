@@ -60,10 +60,8 @@ export class PaypalService {
     };
 
     try {
-      console.log(collect, "collectttt");
       const { body, ...httpResponse } =
         await this.ordersController.createOrder(collect);
-      console.log(body, "bodyyyy");
       return {
         data: typeof body === 'string' ? JSON.parse(body) : body,
         statusCode: httpResponse.statusCode,
