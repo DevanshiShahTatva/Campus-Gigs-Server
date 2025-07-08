@@ -13,6 +13,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import {
+  ChangeGigPriorityDto,
   ChangeGigStatusDto,
   GigPipelineQueryParams,
   GigsQueryParams,
@@ -67,11 +68,17 @@ export class GigsController {
   @Put('/change-status/:gigId')
   updateGigStatus(
     @Param('gigId') gigId: string,
-    @Body() body: ChangeGigStatusDto,
-    @Req() request: Request,
+    @Body() body: ChangeGigStatusDto
   ) {
-    const user = request.user as any;
     return this.gigsService.updateGigStatus(gigId, body);
+  }
+
+  @Put('/priority/:gigId')
+  updateGigPriority(
+    @Param('gigId') gigId: string,
+    @Body() body: ChangeGigPriorityDto,
+  ) {
+    return this.gigsService.updateGigPriority(gigId, body);
   }
 
   @Get(':id')

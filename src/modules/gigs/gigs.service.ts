@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  ChangeGigPriorityDto,
   ChangeGigStatusDto,
   GigPipelineQueryParams,
   GigsQueryParams,
@@ -384,6 +385,35 @@ export class GigsService {
     });
 
     return { message: 'Gig status changed successfully' };
+  }
+
+  async updateGigPriority(gigId: string, body: ChangeGigPriorityDto) {
+    const findGig = await this.prismaService.gigs.findUnique({
+      where: { id: Number(gigId) },
+    });
+
+    if (!findGig) {
+      throw new NotFoundException({
+        status: HttpStatus.NOT_FOUND,
+        message: 'Gig not found',
+      });
+    }
+
+    if (findGig.status !== "in_progress") {
+      throw new BadRequestException({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'Priority can be set for only in progress gigs',
+      });
+    }
+
+    await this.prismaService.gigs.update({
+      where: { id: Number(gigId) },
+      data: {
+        priority: body.priority,
+      },
+    });
+
+    return { message: 'Gig priority updated successfully' };
   }
 
   async findById(id: number, user_id: number) {
