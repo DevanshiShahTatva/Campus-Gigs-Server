@@ -8,31 +8,11 @@ import { IoAdapter } from '@nestjs/platform-socket.io';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 
-const allowedOrigins = [
-  'http://localhost:3000',
-  'https://campusgigsclient.vercel.app',
-  'https://campusgigfe.vercel.app',
-  'https://campusgigfe.netlify.app',
-  /^https?:\/\/campusgigfe-[a-z0-9]+\.vercel\.app$/, // For Vercel preview deployments
-];
-
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     cors: {
       origin: (origin, callback) => {
-        if (
-          !origin ||
-          allowedOrigins.some((allowedOrigin) => {
-            if (typeof allowedOrigin === 'string') {
-              return origin === allowedOrigin;
-            }
-            return allowedOrigin.test(origin);
-          })
-        ) {
-          callback(null, true);
-        } else {
-          callback(new Error('Not allowed by CORS'));
-        }
+        callback(null, true);
       },
       methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
       credentials: true,
@@ -57,9 +37,7 @@ async function bootstrap() {
 
   app.enableCors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      }
+      callback(null, true);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],

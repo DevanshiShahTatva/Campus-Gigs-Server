@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   Client,
@@ -25,15 +25,10 @@ export class PaypalService {
     this.client = new Client({
       clientCredentialsAuthCredentials: {
         oAuthClientId: this.configService.get<string>('PAYPAL_CLIENT_ID')!,
-        oAuthClientSecret: this.configService.get<string>(
-          'PAYPAL_CLIENT_SECRET',
-        )!,
+        oAuthClientSecret: this.configService.get<string>('PAYPAL_CLIENT_SECRET')!,
       },
       timeout: 0,
-      environment:
-        this.configService.get<string>('NODE_ENV') === 'production'
-          ? Environment.Production
-          : Environment.Sandbox,
+      environment: Environment.Sandbox,
       logging: {
         logLevel: LogLevel.Info,
         logRequest: {
@@ -67,14 +62,13 @@ export class PaypalService {
     try {
       const { body, ...httpResponse } =
         await this.ordersController.createOrder(collect);
-
       return {
         data: typeof body === 'string' ? JSON.parse(body) : body,
         statusCode: httpResponse.statusCode,
       };
     } catch (error) {
       if (error instanceof ApiError) {
-        throw new Error(`PayPal API Error: ${error.message}`);
+        throw new BadRequestException(`PayPal API Error: ${error.message}`);
       }
       throw error;
     }
