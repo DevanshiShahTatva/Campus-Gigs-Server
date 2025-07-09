@@ -49,7 +49,7 @@ export class UserService {
 
   async updateUser(
     id: number,
-    updateData: Partial<SignupDto>,
+    updateData: any,
     file?: Express.Multer.File,
   ) {
     const user = await this.prismaService.user.findUnique({ where: { id } });
@@ -89,9 +89,16 @@ export class UserService {
       };
     }
 
+    // Only update provided fields, do not overwrite others with undefined
+    const dataToUpdate = {};
+    for (const key in updateData) {
+      if (updateData[key] !== undefined) {
+        dataToUpdate[key] = updateData[key];
+      }
+    }
     return this.prismaService.user.update({
       where: { id },
-      data: updatePayload,
+      data: dataToUpdate,
       include: {
         skills: {
           select: { id: true, name: true },
@@ -123,5 +130,19 @@ export class UserService {
         },
       },
     });
+  }
+
+  async deleteProfilePhoto(userId: string) {
+    const user = await this.prismaService.user.findUnique({ where: { id: Number(userId) } });
+
+    if (user?.profile) {
+      const key = this.awsS3Service.getKeyFromUrl(user?.profile);
+      await this.awsS3Service.deleteFile(key);
+    }
+
+    return await this.prismaService.user.update({
+      where: { id: Number(userId)},
+      data: { profile: "" }
+    })
   }
 }

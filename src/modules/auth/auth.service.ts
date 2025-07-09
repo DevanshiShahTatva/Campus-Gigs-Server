@@ -18,6 +18,7 @@ import { BuyPlanService } from '../buy-plan/buy-plan.service';
 import { PROFILE_TYPE } from 'src/utils/enums';
 import { excludeFromObject } from 'src/utils/helper';
 import { PrismaService } from '../prisma/prisma.service';
+import { ChangePasswordDto } from './auth.dto';
 
 @Injectable()
 export class AuthService {
@@ -224,5 +225,23 @@ export class AuthService {
     }
 
     return this.userService.updateUser(findUser.id, body);
+  }
+
+  async changePassword(userId: number, dto: ChangePasswordDto) {
+    const user = await this.userService.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    const valid = await bcrypt.compare(dto.currentPassword, user.password);
+    if (!valid) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+    if (dto.currentPassword === dto.newPassword) {
+      throw new BadRequestException('New password must be different from current password');
+    }
+    const salt = 10;
+    const hashpassword = await bcrypt.hash(dto.newPassword, salt);
+    await this.userService.updateUser(userId, { password: hashpassword });
+    return { message: 'Password changed successfully' };
   }
 }
