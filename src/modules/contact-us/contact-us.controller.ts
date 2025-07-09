@@ -8,6 +8,7 @@ import {
   Query,
   Put,
   ParseIntPipe,
+  Req,
 } from '@nestjs/common';
 
 // services
@@ -41,6 +42,12 @@ export class ContactUsController {
   @Roles('admin')
   async getAll(@Query() query: ContactUsQueryParams) {
     return this.contactUsService.findAll(query);
+  }
+
+  @Get('my-requests')
+  @UseGuards(JwtAuthGuard)
+  async getMyRequests(@Req() req) {
+    return this.contactUsService.findByUserEmail(req.user.email);
   }
 
   @Put(':id/status')

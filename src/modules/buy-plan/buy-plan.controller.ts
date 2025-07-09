@@ -53,6 +53,11 @@ export class BuyPlanController {
     return this.buyPlanService.findActivePlan(req.user.id);
   }
 
+  @Get('history')
+  async getHistory(@Req() req: any) {
+    return this.buyPlanService.getPlanHistory(req.user.id);
+  }
+
   @Delete(':id')
   async remove(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
     await this.buyPlanService.cancelPlan(id, req.user.id);
