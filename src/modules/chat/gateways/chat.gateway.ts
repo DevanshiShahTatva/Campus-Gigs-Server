@@ -54,7 +54,7 @@ const EVENTS = {
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.FRONTEND_URLS?.split(',') || '*',
+    origin: '*',
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -194,37 +194,16 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ): Promise<{ success: boolean; message?: any; error?: string }> {
     try {
       const { user } = client.data;
-      const { chatId, message, type } = data;
+      const { chatId, ...message } = data;
 
-      const savedMessage = await this.chatService.sendMessage(user.id, chatId, {
-        message,
-        messageType: type as any,
-      });
-
+      // Emit to users in the chat room
       this.server.to(this.getChatRoomName(chatId)).emit(EVENTS.NEW_MESSAGE, {
-        ...savedMessage,
-        sender: { id: user.id, name: user.name || 'User' },
+        message,
       });
 
-      await this.notifyChatUpdate(chatId, user.id, savedMessage);
+      await this.notifyChatUpdate(chatId, user.id, message);
 
-      const chat = await this.chatService.getRawChat(chatId);
-      if (!chat) {
-        this.logger.error(
-          `[handleMessage] Chat not found for chatId: ${chatId}`,
-        );
-        return { success: false, error: 'Chat not found' };
-      }
-
-      const otherUserId =
-        chat.user1Id === user.id ? chat.user2Id : chat.user1Id;
-      this.emitToUserSockets(otherUserId, EVENTS.CHAT_NOTIFICATION, {
-        chatId,
-        message: savedMessage,
-        sender: { id: user.id, name: user.name || 'User' },
-      });
-
-      return { success: true, message: savedMessage };
+      return { success: true, message };
     } catch (error) {
       this.logger.error('Error sending message:', error);
       return { success: false, error: error.message };

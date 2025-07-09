@@ -3,6 +3,8 @@ import {
   Logger,
   BadRequestException,
   NotFoundException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -11,12 +13,17 @@ import {
   GetChatMessagesDto,
   GetUserChatsDto,
 } from './chat.dto';
+import { ChatGateway } from './gateways/chat.gateway';
 import { MESSAGE_TYPE } from 'src/utils/enums';
 
 @Injectable()
 export class ChatService {
   private readonly logger = new Logger(ChatService.name);
-  constructor(private prismaService: PrismaService) {}
+  constructor(
+    private prismaService: PrismaService,
+    @Inject(forwardRef(() => ChatGateway))
+    private chatGateway: ChatGateway,
+  ) {}
 
   async createChat(createChatDto: { user1Id: number; user2Id: number }) {
     // Check if users exist
@@ -107,6 +114,14 @@ export class ChatService {
       },
     });
 
+    // Emit to the chat room using the gateway
+    // if (this.chatGateway && this.chatGateway.getServer()) {
+    this.chatGateway
+      .getServer()
+      .to(`chat_${chatId}`)
+      .emit('newMessage', { message });
+    // }
+
     return {
       data: message,
       message: 'Message sent successfully',
@@ -144,7 +159,7 @@ export class ChatService {
           sender: true,
         },
         orderBy: {
-          created_at: 'asc',
+          created_at: 'desc',
         },
         skip,
         take: query.pageSize,
@@ -158,7 +173,7 @@ export class ChatService {
     ]);
 
     return {
-      data: messages.reverse(), // Return oldest first
+      data: messages,
       meta: {
         total,
         page: query.page,
