@@ -82,4 +82,18 @@ export class UserService {
   async findById(id: number) {
     return await this.prismaService.user.findUnique({ where: { id } });
   }
+
+  async deleteProfilePhoto(userId: string) {
+    const user = await this.prismaService.user.findUnique({ where: { id: Number(userId) } });
+
+    if (user?.profile) {
+      const key = this.awsS3Service.getKeyFromUrl(user?.profile);
+      await this.awsS3Service.deleteFile(key);
+    }
+
+    return await this.prismaService.user.update({
+      where: { id: Number(userId)},
+      data: { profile: "" }
+    })
+  }
 }
