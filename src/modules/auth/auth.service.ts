@@ -17,6 +17,7 @@ import { SubscriptionPlanService } from '../subscription-plan/subscription-plan.
 import { BuyPlanService } from '../buy-plan/buy-plan.service';
 import { PROFILE_TYPE } from 'src/utils/enums';
 import { excludeFromObject } from 'src/utils/helper';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class AuthService {
@@ -26,6 +27,7 @@ export class AuthService {
     private readonly mailService: MailService,
     private readonly subscriptionPlanService: SubscriptionPlanService,
     private readonly buyPlanService: BuyPlanService,
+    private readonly PrismaService: PrismaService,
   ) {}
 
   private signJWT(payload: any): string {
@@ -44,7 +46,16 @@ export class AuthService {
       });
     }
 
-    const user: any = await this.userService.create(userBody, file);
+    const skillIds = userBody?.skills?.map(Number) || [];
+
+    const validSkills = await this.PrismaService.skills.findMany({
+      where: {
+        id: { in: skillIds },
+        is_deleted: false,
+      },
+    });
+    
+    const user: any = await this.userService.create(userBody, file, validSkills);
 
     const result = await this.subscriptionPlanService.findFreePlan();
 

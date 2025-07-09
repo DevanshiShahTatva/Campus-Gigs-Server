@@ -87,7 +87,7 @@ model User {
   professional_interests String?
   extracurriculars       String?
   certifications         String?
-  skills                 String[]              @default([])
+  skills                 Skills[]              @relation("UserSkills")
   education              String?
   otp                    String?
   otp_expiry             String?
@@ -270,6 +270,7 @@ model Skills {
  
   category   GigsCategory? @relation(fields: [categoryId], references: [id])
   gigs       Gigs[]        @relation("GigsSkills")
+  users User[] @relation("UserSkills")
 }
 
 model GigsCategory {

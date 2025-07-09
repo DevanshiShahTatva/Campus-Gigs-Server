@@ -1,9 +1,10 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { SignupDto } from './user.dto';
 import { AwsS3Service } from '../shared/aws-s3.service';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
 import { excludeFromObject } from 'src/utils/helper';
+import { Skills } from '@prisma/client';
 
 @Injectable()
 export class UserService {
@@ -12,7 +13,7 @@ export class UserService {
     private prismaService: PrismaService,
   ) {}
 
-  async create(userBody: SignupDto, file?: Express.Multer.File) {
+  async create(userBody: SignupDto, file?: Express.Multer.File, validSkills: Skills[] = []) {
     let profile: string = '';
 
     if (file) {
@@ -27,11 +28,19 @@ export class UserService {
     const salt = 10;
     const hashpassword = await bcrypt.hash(userBody.password, salt);
 
+    const { skills, ...rest } = userBody;
+
     const user = await this.prismaService.user.create({
       data: {
-        ...userBody,
+        ...rest,
         profile,
-        password: hashpassword
+        password: hashpassword,
+        skills: {
+          connect: validSkills.map((s) => ({ id: s.id })),
+        },
+      },
+      include: {
+        skills: true,
       },
     });
 
@@ -61,10 +70,33 @@ export class UserService {
       updateData['profile'] = newProfileUrl;
     }
 
-    Object.assign(user, updateData);
+    const { skills, ...rest } = updateData;
+    const updatePayload: any = {
+      ...rest,
+    };
+    if (skills && Array.isArray(skills)) {
+      const skillIds = skills.map(Number);
+
+      const validSkills = await this.prismaService.skills.findMany({
+        where: {
+          id: { in: skillIds },
+          is_deleted: false,
+        },
+      });
+
+      updatePayload.skills = {
+        set: validSkills.map((skill) => ({ id: skill.id })), // replaces existing skills
+      };
+    }
+
     return this.prismaService.user.update({
       where: { id },
-      data: user,
+      data: updatePayload,
+      include: {
+        skills: {
+          select: { id: true, name: true },
+        },
+      },
     });
   }
 
@@ -80,6 +112,16 @@ export class UserService {
   }
 
   async findById(id: number) {
-    return await this.prismaService.user.findUnique({ where: { id } });
+    return this.prismaService.user.findUnique({
+      where: { id },
+      include: {
+        skills: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
   }
 }
