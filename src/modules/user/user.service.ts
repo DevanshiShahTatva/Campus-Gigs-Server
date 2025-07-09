@@ -91,9 +91,9 @@ export class UserService {
 
     // Only update provided fields, do not overwrite others with undefined
     const dataToUpdate = {};
-    for (const key in updateData) {
-      if (updateData[key] !== undefined) {
-        dataToUpdate[key] = updateData[key];
+    for (const key in updatePayload) {
+      if (updatePayload[key] !== undefined) {
+        dataToUpdate[key] = updatePayload[key];
       }
     }
     return this.prismaService.user.update({
