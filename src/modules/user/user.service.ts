@@ -40,7 +40,7 @@ export class UserService {
 
   async updateUser(
     id: number,
-    updateData: Partial<SignupDto>,
+    updateData: any,
     file?: Express.Multer.File,
   ) {
     const user = await this.prismaService.user.findUnique({ where: { id } });
@@ -61,10 +61,16 @@ export class UserService {
       updateData['profile'] = newProfileUrl;
     }
 
-    Object.assign(user, updateData);
+    // Only update provided fields, do not overwrite others with undefined
+    const dataToUpdate = {};
+    for (const key in updateData) {
+      if (updateData[key] !== undefined) {
+        dataToUpdate[key] = updateData[key];
+      }
+    }
     return this.prismaService.user.update({
       where: { id },
-      data: user,
+      data: dataToUpdate,
     });
   }
 

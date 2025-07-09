@@ -6,13 +6,6 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { ValidationPipe } from '@nestjs/common';
 
-const allowedOrigins = [
-  'http://localhost:3000',
-  'https://campusgigsclient.vercel.app',
-  "https://campusgigfe.vercel.app",
-  "https://campusgigfe.netlify.app",
-];
-
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
  
@@ -31,9 +24,7 @@ async function bootstrap() {
  
   app.enableCors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      }
+      callback(null, true);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],

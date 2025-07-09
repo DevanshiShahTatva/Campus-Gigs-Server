@@ -230,4 +230,12 @@ export class BuyPlanService {
       orderId: order.id,
     };
   }
+
+  async getPlanHistory(userId: number) {
+    return this.prismaService.subscriptionPlanBuy.findMany({
+      where: { user_id: userId },
+      include: { subscription_plan: true },
+      orderBy: { created_at: 'desc' },
+    });
+  }
 }
