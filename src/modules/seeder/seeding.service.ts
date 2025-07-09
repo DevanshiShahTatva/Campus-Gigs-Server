@@ -30,7 +30,7 @@ export class SeedingService {
           professional_interests: '',
           extracurriculars: '',
           certifications: '',
-          skills: [],
+          // skills: [],
           education: '',
           otp: '',
           otp_expiry: '',
