@@ -119,4 +119,14 @@ export class ContactUsService {
       responseMessage: messageMatch ? messageMatch[1].trim() : aiResult.trim(),
     };
   }
+
+  async findByUserEmail(email: string) {
+    return this.prismaService.contactUs.findMany({
+      where: {
+        email,
+        is_deleted: false,
+      },
+      orderBy: { created_at: 'desc' },
+    });
+  }
 }
