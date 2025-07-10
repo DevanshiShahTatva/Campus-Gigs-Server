@@ -22,13 +22,13 @@ async function bootstrap() {
  
   app.use(helmet());
  
-  app.enableCors({
-    origin: (origin, callback) => {
-      callback(null, true);
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  });
+  // app.enableCors({
+  //   origin: (origin, callback) => {
+  //     callback(null, true);
+  //   },
+  //   credentials: true,
+  //   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  // });
 
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ extended: true, limit: '50mb' }));
