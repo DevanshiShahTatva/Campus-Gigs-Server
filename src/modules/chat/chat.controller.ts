@@ -8,8 +8,10 @@ import {
   UseGuards,
   Req,
   BadRequestException,
-  NotFoundException,
+  UseInterceptors,
+  UploadedFiles,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { Request } from 'express';
 
 import { ChatService } from './chat.service';
@@ -22,6 +24,7 @@ import {
   GetChatMessagesDto,
   GetUserChatsDto,
 } from './chat.dto';
+import { multerOptions } from 'src/utils/multer';
 
 // Define custom request interface to extend Express Request
 export interface AuthenticatedRequest extends Request {
@@ -57,13 +60,19 @@ export class ChatController {
 
   @Post(':chatId/messages')
   @Roles('user')
+  @UseInterceptors(FilesInterceptor('files', 5, multerOptions))
   async sendMessage(
     @Req() req: AuthenticatedRequest,
     @Param('chatId') chatId: number,
     @Body() sendMessageDto: SendMessageDto,
+    @UploadedFiles() files: Express.Multer.File[],
   ) {
-    console.log('User sending message:', req.user.id, chatId, sendMessageDto);
-    return this.chatService.sendMessage(req.user.id, +chatId, sendMessageDto);
+    return this.chatService.sendMessage(
+      req.user.id,
+      +chatId,
+      sendMessageDto,
+      files,
+    );
   }
 
   @Get(':chatId/messages')

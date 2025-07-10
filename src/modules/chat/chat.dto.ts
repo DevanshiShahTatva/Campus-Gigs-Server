@@ -4,6 +4,8 @@ import {
   IsString,
   IsEnum,
   IsOptional,
+  IsArray,
+  ArrayMaxSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -17,12 +19,15 @@ export class CreateChatDto {
 
 export class SendMessageDto {
   @IsString()
-  @IsNotEmpty()
-  message: string;
+  @IsOptional()
+  message?: string;
 
   @IsEnum(MESSAGE_TYPE)
   @IsOptional()
-  messageType: MESSAGE_TYPE = MESSAGE_TYPE.TEXT;
+  messageType?: MESSAGE_TYPE = MESSAGE_TYPE.TEXT;
+
+  @IsOptional()
+  files?: any[]; // Will be populated by multer
 }
 
 export class GetChatMessagesDto {

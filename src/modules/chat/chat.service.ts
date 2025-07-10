@@ -15,6 +15,7 @@ import {
 } from './chat.dto';
 import { ChatGateway } from './gateways/chat.gateway';
 import { MESSAGE_TYPE } from 'src/utils/enums';
+import { AwsS3Service } from '../shared/aws-s3.service';
 
 @Injectable()
 export class ChatService {
@@ -23,6 +24,7 @@ export class ChatService {
     private prismaService: PrismaService,
     @Inject(forwardRef(() => ChatGateway))
     private chatGateway: ChatGateway,
+    private readonly awsS3Service: AwsS3Service,
   ) {}
 
   async createChat(createChatDto: { user1Id: number; user2Id: number }) {
@@ -87,6 +89,7 @@ export class ChatService {
     senderId: number,
     chatId: number,
     sendMessageDto: SendMessageDto,
+    files: Express.Multer.File[] = [],
   ) {
     // Verify chat exists and user is a participant
     const chat = await this.prismaService.chat.findFirst({
@@ -101,26 +104,61 @@ export class ChatService {
       throw new NotFoundException('Chat not found or access denied');
     }
 
-    // Create message
+    // Upload files to S3 and prepare attachment data
+    const attachmentsData: {
+      url: string;
+      type: string;
+      filename: string;
+      mimetype: string;
+      file_size: number;
+    }[] = [];
+    // Limit to 5 files
+    for (const file of (files || []).slice(0, 5)) {
+      const url = await this.awsS3Service.uploadFile(
+        file.buffer,
+        file.originalname,
+        file.mimetype,
+        'chat',
+      );
+      attachmentsData.push({
+        url,
+        type: file.mimetype.startsWith('image') ? 'image' : 'file',
+        filename: file.originalname,
+        mimetype: file.mimetype,
+        file_size: file.size,
+      });
+    }
+
+    // Create message with attachments
     const message = await this.prismaService.message.create({
       data: {
         sender_id: senderId,
         chat_id: chatId,
-        message: sendMessageDto.message,
-        message_type: sendMessageDto.messageType || MESSAGE_TYPE.TEXT,
+        message: sendMessageDto.message || '',
+        attachments: {
+          create: attachmentsData,
+        },
       },
       include: {
         sender: true,
+        attachments: true,
       },
     });
 
-    // Emit to the chat room using the gateway
-    // if (this.chatGateway && this.chatGateway.getServer()) {
     this.chatGateway
       .getServer()
       .to(`chat_${chatId}`)
       .emit('newMessage', { message });
-    // }
+
+    // Emit latest message to both users' sidebar channels
+    const chatRecord = await this.prismaService.chat.findUnique({
+      where: { id: chatId },
+      select: { user1Id: true, user2Id: true },
+    });
+    if (chatRecord) {
+      this.chatGateway.emitLatestMessageToUser(chatRecord.user1Id, message);
+      this.chatGateway.emitLatestMessageToUser(chatRecord.user2Id, message);
+    }
 
     return {
       data: message,
@@ -148,7 +186,7 @@ export class ChatService {
 
     const skip = (query.page - 1) * query.pageSize;
 
-    // Get messages with pagination
+    // Get messages with pagination, including attachments
     const [messages, total] = await Promise.all([
       this.prismaService.message.findMany({
         where: {
@@ -157,6 +195,7 @@ export class ChatService {
         },
         include: {
           sender: true,
+          attachments: true,
         },
         orderBy: {
           created_at: 'desc',
@@ -190,6 +229,20 @@ export class ChatService {
       where: { id: chatId, is_deleted: false },
       select: { id: true, user1Id: true, user2Id: true },
     });
+  }
+
+  // Soft delete message
+  async deleteMessage(messageId: number, userId: number) {
+    const message = await this.prismaService.message.findUnique({
+      where: { id: messageId },
+    });
+    if (!message || message.sender_id !== userId)
+      throw new NotFoundException('Not allowed');
+    await this.prismaService.message.update({
+      where: { id: messageId },
+      data: { is_deleted: true, deleted_at: new Date() },
+    });
+    return { success: true };
   }
 
   async getChatDetails(userId: number, chatId: number) {
@@ -294,11 +347,24 @@ export class ChatService {
       }),
     ]);
 
+    // Fetch unread counts for all chats for this user
+    const unreadCounts = await this.prismaService.message.groupBy({
+      by: ['chat_id'],
+      where: {
+        chat_id: { in: chats.map((chat) => chat.id) },
+        is_read: false,
+        is_deleted: false,
+        sender_id: { not: userId },
+      },
+      _count: { id: true },
+    });
+    const unreadCountMap = new Map<number, number>();
+    unreadCounts.forEach((uc) => unreadCountMap.set(uc.chat_id, uc._count.id));
+
     // Format response to include the other user's info and last message
     const formattedChats = chats.map((chat) => {
       const otherUser = chat.user1Id === userId ? chat.user2 : chat.user1;
       const lastMessage = chat.messages[0] || null;
-
       return {
         id: chat.id,
         otherUser: {
@@ -311,12 +377,12 @@ export class ChatService {
           ? {
               id: lastMessage.id,
               message: lastMessage.message,
-              messageType: lastMessage.message_type,
               createdAt: lastMessage.created_at,
+              deletedAt: lastMessage.deleted_at,
               isMine: lastMessage.sender_id === userId,
             }
           : null,
-        unreadCount: 0, // You can implement unread count logic if needed
+        unreadCount: unreadCountMap.get(chat.id) || 0,
         updatedAt: chat.updated_at,
       };
     });

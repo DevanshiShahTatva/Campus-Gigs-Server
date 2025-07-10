@@ -48,6 +48,7 @@ const EVENTS = {
   CHAT_UPDATED: 'chatUpdated',
   MESSAGES_READ: 'messagesRead',
   NEW_MESSAGE: 'newMessage',
+  LATEST_MESSAGE: 'latestMessage',
   CHAT_NOTIFICATION: 'chatNotification',
   USER_TYPING: 'userTyping',
 };
@@ -143,6 +144,26 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     } catch (error) {
       this.logger.error('Error joining chat:', error);
     }
+  }
+
+  @SubscribeMessage('joinUserChannel')
+  public handleJoinUserChannel(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() data: { userId: number },
+  ): void {
+    const room = `user_${data.userId}`;
+    client.join(room);
+    this.logger.log(`User ${client.data.user.id} joined user channel ${room}`);
+  }
+
+  @SubscribeMessage('leaveUserChannel')
+  public handleLeaveUserChannel(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() data: { userId: number },
+  ): void {
+    const room = `user_${data.userId}`;
+    client.leave(room);
+    this.logger.log(`User ${client.data.user.id} left user channel ${room}`);
   }
 
   @SubscribeMessage('typing')
@@ -276,6 +297,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server
       .to(this.getChatRoomName(chatId))
       .emit(EVENTS.NEW_MESSAGE, message);
+  }
+
+  public emitLatestMessageToUser(userId: number, message: any): void {
+    this.server.to(`user_${userId}`).emit(EVENTS.LATEST_MESSAGE, message);
   }
 
   public emitChatUpdate(userId: number, updateData: ChatUpdateData): void {
