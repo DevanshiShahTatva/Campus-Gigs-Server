@@ -21,11 +21,9 @@ async function bootstrap() {
   app.useGlobalInterceptors(new ResponseInterceptor());
  
   app.use(helmet());
- 
+
   app.enableCors({
-    origin: (origin, callback) => {
-      callback(null, true);
-    },
+    origin: true,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   });
