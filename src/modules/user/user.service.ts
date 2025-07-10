@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
 import { excludeFromObject } from 'src/utils/helper';
 import { Skills } from '@prisma/client';
+import { AgreedTemsPolicy } from '../auth/auth.dto';
 
 @Injectable()
 export class UserService {
@@ -111,6 +112,13 @@ export class UserService {
     return await this.prismaService.user.updateMany({
       where: { is_agreed: true },
       data: { is_agreed: false },
+    });
+  }
+
+  async updateAgreedForUser(body: AgreedTemsPolicy) {
+    return await this.prismaService.user.update({
+      where: { id: body.user_id },
+      data: { is_agreed: true }
     });
   }
 

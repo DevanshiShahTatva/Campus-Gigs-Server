@@ -8,11 +8,13 @@ import {
 import { PRIVACY_POLICY_GENERATION_PROMPT } from '../../utils/helper';
 import { AiService } from '../shared/ai.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { UserService } from '../user/user.service';
 
 @Injectable()
 export class PrivacyPolicyService {
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly userService: UserService,
     private readonly aiService: AiService,
   ) {}
 
@@ -43,6 +45,9 @@ export class PrivacyPolicyService {
       },
       data: updateDto,
     });
+
+    await this.userService.updatePolicyForAllUser();
+
     if (!updated) throw new NotFoundException('Privacy Policy not found');
     return updated;
   }

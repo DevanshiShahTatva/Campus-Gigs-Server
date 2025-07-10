@@ -216,7 +216,7 @@ export class AuthService {
   }
 
   async agreedTermsPolicy(body: AgreedTemsPolicy) {
-    const findUser = await this.userService.findById(body.userId);
+    const findUser = await this.userService.findById(body.user_id);
     if (!findUser) {
       throw new NotFoundException({
         status: HttpStatus.NOT_FOUND,
@@ -224,7 +224,7 @@ export class AuthService {
       });
     }
 
-    return this.userService.updateUser(findUser.id, body);
+    return this.userService.updateAgreedForUser(body);
   }
 
   async changePassword(userId: number, dto: ChangePasswordDto) {
