@@ -18,7 +18,7 @@ export class GigsCategoryService {
     const { name, description, tire_id, skillIds } = body;
 
     // 1. Check for duplicate category name
-    const existingCategory = await this.prismaService.gigsCategory.findFirst({ where: { name } });
+    const existingCategory = await this.prismaService.gigsCategory.findFirst({ where: { name, is_deleted: false } });
     if (existingCategory) {
       throw new BadRequestException({ message: 'Category name already exists' });
     }
@@ -68,7 +68,7 @@ export class GigsCategoryService {
   }
 
   async update(id: number, body: GigsCategoryDto) {
-    const existing = await this.prismaService.gigsCategory.findUnique({ where: { id } });
+    const existing = await this.prismaService.gigsCategory.findUnique({ where: { id, is_deleted: false } });
     if (!existing) throw new NotFoundException({ message: 'Category not found' });
 
     const { name, description, tire_id, skillIds } = body;
@@ -131,7 +131,31 @@ export class GigsCategoryService {
 
 
   async delete(id: number) {
-    await this.prismaService.gigsCategory.delete({ where: { id } });
+    const category = await this.prismaService.gigsCategory.findUnique({
+      where: { id },
+      include: {
+        gigs: {
+          where: { is_deleted: false },
+        },
+      },
+    });
+
+    if (!category) {
+      throw new NotFoundException('Category not found.');
+    }
+
+    if (category.gigs.length > 0) {
+      throw new BadRequestException(
+        'Cannot delete: This category is in use by one or more gigs.',
+      );
+    }
+
+    return this.prismaService.gigsCategory.update({
+      where: { id },
+      data: {
+        is_deleted: true,
+      },
+    });
   }
 
   // async getAllIdsByName(search: string) {
@@ -214,7 +238,7 @@ export class GigsCategoryService {
 
   async findById(id: number) {
     const category = await this.prismaService.gigsCategory.findUnique({
-      where: { id },
+      where: { id, is_deleted: false },
       include: {
         tire: true,
         skills: true,
