@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import { SkillDto } from './skills.dto';
 
@@ -38,7 +38,7 @@ export class SkillsService {
 
     async getSkillById(id: number) {
         return this.prisma.skills.findUnique({
-            where: { id },
+            where: { id, is_deleted: false },
         });
     }
 
@@ -86,12 +86,52 @@ export class SkillsService {
     }
 
     async deleteSkill(id: number) {
-        return this.prisma.skills.update({
+        const skill = await this.prisma.skills.findUnique({
             where: { id },
-            data: {
-                is_deleted: true,
+            include: {
+                category: true,
+                users: {
+                    where: { is_deleted: false },
+                    select: { id: true },
+                },
             },
         });
+
+        if (!skill) {
+            throw new NotFoundException('Skill not found.');
+        }
+
+        if (skill.categoryId !== null) {
+            throw new BadRequestException('This skill is assigned to a category and cannot be deleted.');
+        }
+
+        if (skill.users.length > 0) {
+            throw new BadRequestException('This skill is assigned to one or more users and cannot be deleted.');
+        }
+
+        return await this.prisma.skills.update({
+            where: { id },
+            data: { is_deleted: true },
+        });
+
+        // const skill = await this.prisma.skills.findUnique({
+        //     where: { id },
+        //     include: {
+        //         category: {
+        //             where: { is_deleted: false },
+        //         },
+        //     },
+        // });
+
+        // if (skill?.category) {
+        //     throw new BadRequestException('This skill is already assigned to a category and cannot be deleted.');
+        // }
+        // return this.prisma.skills.update({
+        //     where: { id },
+        //     data: {
+        //         is_deleted: true,
+        //     },
+        // });
     }
 }
 

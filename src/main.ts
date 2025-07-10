@@ -36,9 +36,7 @@ async function bootstrap() {
   app.use(helmet());
 
   app.enableCors({
-    origin: (origin, callback) => {
-      callback(null, true);
-    },
+    origin: true,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   });

@@ -43,6 +43,17 @@ export class TireService {
   }
 
   async delete(id: number) {
+    const relatedCategories = await this.prismaService.gigsCategory.findMany({
+      where: {
+        tire_id: id,
+        is_deleted: false,
+      },
+    });
+
+    if (relatedCategories.length > 0) {
+      throw new BadRequestException('This tier is assigned to one or more categories and cannot be deleted.');
+    }
+
     return await this.prismaService.tire.update({
       where: { id },
       data: {

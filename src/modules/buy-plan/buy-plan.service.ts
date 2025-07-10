@@ -125,9 +125,12 @@ export class BuyPlanService {
             status: BY_PLAN_STATUS.active,
             price: price,
             transaction_id: capture.id,
-            subscription_expiry_date: new Date(
-              new Date().setFullYear(new Date().getFullYear() + 1),
-            ),
+            subscription_expiry_date: (() => {
+              const now = new Date();
+              const expiry = new Date(now);
+              expiry.setMonth(expiry.getMonth() + 1);
+              return expiry;
+            })(),
           },
           include: {
             subscription_plan: true,
@@ -229,5 +232,13 @@ export class BuyPlanService {
     return {
       orderId: order.id,
     };
+  }
+
+  async getPlanHistory(userId: number) {
+    return this.prismaService.subscriptionPlanBuy.findMany({
+      where: { user_id: userId },
+      include: { subscription_plan: true },
+      orderBy: { created_at: 'desc' },
+    });
   }
 }

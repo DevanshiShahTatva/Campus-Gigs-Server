@@ -17,6 +17,8 @@ import { SubscriptionPlanService } from '../subscription-plan/subscription-plan.
 import { BuyPlanService } from '../buy-plan/buy-plan.service';
 import { PROFILE_TYPE } from 'src/utils/enums';
 import { excludeFromObject } from 'src/utils/helper';
+import { PrismaService } from '../prisma/prisma.service';
+import { ChangePasswordDto } from './auth.dto';
 
 @Injectable()
 export class AuthService {
@@ -26,6 +28,7 @@ export class AuthService {
     private readonly mailService: MailService,
     private readonly subscriptionPlanService: SubscriptionPlanService,
     private readonly buyPlanService: BuyPlanService,
+    private readonly PrismaService: PrismaService,
   ) {}
 
   private signJWT(payload: any): string {
@@ -44,7 +47,16 @@ export class AuthService {
       });
     }
 
-    const user: any = await this.userService.create(userBody, file);
+    const skillIds = userBody?.skills?.map(Number) || [];
+
+    const validSkills = await this.PrismaService.skills.findMany({
+      where: {
+        id: { in: skillIds },
+        is_deleted: false,
+      },
+    });
+    
+    const user: any = await this.userService.create(userBody, file, validSkills);
 
     const result = await this.subscriptionPlanService.findFreePlan();
 
@@ -204,7 +216,7 @@ export class AuthService {
   }
 
   async agreedTermsPolicy(body: AgreedTemsPolicy) {
-    const findUser = await this.userService.findById(body.userId);
+    const findUser = await this.userService.findById(body.user_id);
     if (!findUser) {
       throw new NotFoundException({
         status: HttpStatus.NOT_FOUND,
@@ -212,6 +224,24 @@ export class AuthService {
       });
     }
 
-    return this.userService.updateUser(findUser.id, body);
+    return this.userService.updateAgreedForUser(body);
+  }
+
+  async changePassword(userId: number, dto: ChangePasswordDto) {
+    const user = await this.userService.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    const valid = await bcrypt.compare(dto.currentPassword, user.password);
+    if (!valid) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+    if (dto.currentPassword === dto.newPassword) {
+      throw new BadRequestException('New password must be different from current password');
+    }
+    const salt = 10;
+    const hashpassword = await bcrypt.hash(dto.newPassword, salt);
+    await this.userService.updateUser(userId, { password: hashpassword });
+    return { message: 'Password changed successfully' };
   }
 }
