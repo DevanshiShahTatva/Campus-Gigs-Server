@@ -20,19 +20,19 @@ export class PrismaService
       ],
     });
 
-    // this.$on('query', (e) => {
-    //   this.logger.debug(`Query: ${e.query}`);
-    //   this.logger.debug(`Params: ${e.params}`);
-    //   this.logger.debug(`Duration: ${e.duration}ms`);
-    // });
+    this.$on('query', (e) => {
+      this.logger.debug(`Query: ${e.query}`);
+      this.logger.debug(`Params: ${e.params}`);
+      this.logger.debug(`Duration: ${e.duration}ms`);
+    });
 
-    // this.$on('error', (e) => {
-    //   this.logger.error(`Error: ${e.message}`);
-    // });
+    this.$on('error', (e) => {
+      this.logger.error(`Error: ${e.message}`);
+    });
 
-    // this.$on('warn', (e) => {
-    //   this.logger.warn(`Warning: ${e.message}`);
-    // });
+    this.$on('warn', (e) => {
+      this.logger.warn(`Warning: ${e.message}`);
+    });
   }
 
   async onModuleInit() {
