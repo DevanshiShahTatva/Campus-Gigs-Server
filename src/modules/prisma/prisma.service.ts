@@ -2,7 +2,13 @@ import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 
 @Injectable()
-export class PrismaService extends PrismaClient<Prisma.PrismaClientOptions, 'query' | 'error' | 'warn' | 'info'> implements OnModuleInit {
+export class PrismaService
+  extends PrismaClient<
+    Prisma.PrismaClientOptions,
+    'query' | 'error' | 'warn' | 'info'
+  >
+  implements OnModuleInit
+{
   private readonly logger = new Logger(PrismaService.name);
 
   constructor() {
@@ -14,19 +20,19 @@ export class PrismaService extends PrismaClient<Prisma.PrismaClientOptions, 'que
       ],
     });
 
-    this.$on('query', (e) => {
-      this.logger.debug(`Query: ${e.query}`);
-      this.logger.debug(`Params: ${e.params}`);
-      this.logger.debug(`Duration: ${e.duration}ms`);
-    });
+    // this.$on('query', (e) => {
+    //   this.logger.debug(`Query: ${e.query}`);
+    //   this.logger.debug(`Params: ${e.params}`);
+    //   this.logger.debug(`Duration: ${e.duration}ms`);
+    // });
 
-    this.$on('error', (e) => {
-      this.logger.error(`Error: ${e.message}`);
-    });
+    // this.$on('error', (e) => {
+    //   this.logger.error(`Error: ${e.message}`);
+    // });
 
-    this.$on('warn', (e) => {
-      this.logger.warn(`Warning: ${e.message}`);
-    });
+    // this.$on('warn', (e) => {
+    //   this.logger.warn(`Warning: ${e.message}`);
+    // });
   }
 
   async onModuleInit() {

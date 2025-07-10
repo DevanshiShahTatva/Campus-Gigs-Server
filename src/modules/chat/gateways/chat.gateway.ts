@@ -15,14 +15,6 @@ import { UserService } from '../../user/user.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 
-interface ChatUpdateData {
-  chatId: number;
-  lastMessage: string;
-  lastMessageAt: Date;
-  unreadCount: number;
-  senderId: number;
-}
-
 interface UserPresence {
   userId: number;
   status: 'online' | 'offline';
@@ -187,13 +179,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const userId = client.data.user.id;
       await this.chatService.markMessagesAsRead(data.chatId, userId);
 
-      const updateData = {
+      this.server.to(`user_${userId}`).emit(EVENTS.MESSAGES_READ, {
         chatId: data.chatId,
         unreadCount: 0,
-        lastReadAt: new Date(),
-      };
-
-      this.emitToUserSockets(userId, EVENTS.MESSAGES_READ, updateData);
+      });
       return { success: true };
     } catch (error) {
       this.logger.error('Error marking messages as read:', error);
@@ -217,12 +206,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('getOnlineUsers')
   public async handleGetOnlineUsers(
     @ConnectedSocket() client: AuthenticatedSocket,
-  ): Promise<{ onlineUsers: { userId: number; lastSeen?: string }[] }> {
+  ): Promise<{ onlineUsers: { user_id: number; last_seen?: string }[] }> {
     const onlineUsers = Array.from(this.userPresence.values())
       .filter((presence) => presence.status === 'online')
       .map((presence) => ({
-        userId: presence.userId,
-        lastSeen: presence.lastSeen?.toISOString(),
+        user_id: presence.userId,
+        last_seen: presence.lastSeen?.toISOString(),
       }));
 
     return { onlineUsers };
@@ -249,17 +238,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!sockets) return;
     sockets.delete(socketId);
     if (sockets.size === 0) this.userSockets.delete(userId);
-  }
-
-  private getSocketIds(userId: number): string[] {
-    return Array.from(this.userSockets.get(userId) ?? []);
-  }
-
-  private emitToUserSockets(userId: number, event: string, payload: any): void {
-    const socketIds = this.getSocketIds(userId);
-    socketIds.forEach((socketId) => {
-      this.server.to(socketId).emit(event, payload);
-    });
   }
 
   private async updateUserOffline(userId: number): Promise<void> {
@@ -299,11 +277,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       .emit(EVENTS.NEW_MESSAGE, message);
   }
 
-  public emitLatestMessageToUser(userId: number, message: any): void {
-    this.server.to(`user_${userId}`).emit(EVENTS.LATEST_MESSAGE, message);
+  public emitMessageDeleted(chatId: number, messageId: number): void {
+    this.server
+      .to(this.getChatRoomName(chatId))
+      .emit('messageDeleted', { message_id: messageId });
   }
 
-  public emitChatUpdate(userId: number, updateData: ChatUpdateData): void {
-    this.emitToUserSockets(userId, EVENTS.CHAT_UPDATED, updateData);
+  public emitLatestMessageToUser(userId: number, message: any): void {
+    this.server.to(`user_${userId}`).emit(EVENTS.LATEST_MESSAGE, message);
   }
 }

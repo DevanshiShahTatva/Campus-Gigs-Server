@@ -10,6 +10,7 @@ import {
   BadRequestException,
   UseInterceptors,
   UploadedFiles,
+  Delete,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { Request } from 'express';
@@ -102,5 +103,14 @@ export class ChatController {
   ) {
     const userId = req.user.id;
     return this.chatService.getChatDetails(userId, +chatId);
+  }
+
+  @Delete(':messageId')
+  @Roles('user')
+  async deleteMessage(
+    @Req() req: AuthenticatedRequest,
+    @Param('messageId') messageId: number,
+  ) {
+    return this.chatService.deleteMessage(messageId, req.user.id);
   }
 }

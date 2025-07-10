@@ -5,6 +5,7 @@ import {
   NotFoundException,
   Inject,
   forwardRef,
+  HttpCode,
 } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -191,7 +192,6 @@ export class ChatService {
       this.prismaService.message.findMany({
         where: {
           chat_id: chatId,
-          is_deleted: false,
         },
         include: {
           sender: true,
@@ -206,7 +206,6 @@ export class ChatService {
       this.prismaService.message.count({
         where: {
           chat_id: chatId,
-          is_deleted: false,
         },
       }),
     ]);
@@ -238,11 +237,51 @@ export class ChatService {
     });
     if (!message || message.sender_id !== userId)
       throw new NotFoundException('Not allowed');
-    await this.prismaService.message.update({
+    const deletedMessage = await this.prismaService.message.update({
       where: { id: messageId },
       data: { is_deleted: true, deleted_at: new Date() },
     });
-    return { success: true };
+
+    // Emit messageDeleted event to chat room
+    const chat = await this.prismaService.message.findUnique({
+      where: { id: messageId },
+      select: { chat_id: true },
+    });
+    if (chat) {
+      this.chatGateway.emitMessageDeleted(chat.chat_id, messageId);
+
+      // Check if this was the last message
+      const lastMessage = await this.prismaService.message.findFirst({
+        where: {
+          chat_id: chat.chat_id,
+        },
+        orderBy: { created_at: 'desc' },
+        include: { attachments: true },
+      });
+      console.log(lastMessage, 'lastMessage');
+
+      if (lastMessage && lastMessage.id === deletedMessage.id) {
+        const chatRecord = await this.prismaService.chat.findUnique({
+          where: { id: chat.chat_id },
+          select: { user1Id: true, user2Id: true },
+        });
+        if (chatRecord) {
+          // If no messages left, send null; else send new last message
+          this.chatGateway.emitLatestMessageToUser(
+            chatRecord.user1Id,
+            lastMessage || null,
+          );
+          this.chatGateway.emitLatestMessageToUser(
+            chatRecord.user2Id,
+            lastMessage || null,
+          );
+        }
+      }
+    }
+    return {
+      success: true,
+      message: 'Message deleted successfully',
+    };
   }
 
   async getChatDetails(userId: number, chatId: number) {
@@ -331,6 +370,9 @@ export class ChatService {
               created_at: 'desc',
             },
             take: 1,
+            include: {
+              attachments: true,
+            },
           },
         },
         orderBy: {
@@ -363,27 +405,29 @@ export class ChatService {
 
     // Format response to include the other user's info and last message
     const formattedChats = chats.map((chat) => {
-      const otherUser = chat.user1Id === userId ? chat.user2 : chat.user1;
-      const lastMessage = chat.messages[0] || null;
+      const other_user = chat.user1Id === userId ? chat.user2 : chat.user1;
+      const last_message = chat.messages[0] || null;
       return {
         id: chat.id,
-        otherUser: {
-          id: otherUser.id,
-          name: otherUser.name,
-          email: otherUser.email,
-          profile: otherUser.profile,
+        other_user: {
+          id: other_user.id,
+          name: other_user.name,
+          email: other_user.email,
+          profile: other_user.profile,
         },
-        lastMessage: lastMessage
+        last_message: last_message
           ? {
-              id: lastMessage.id,
-              message: lastMessage.message,
-              createdAt: lastMessage.created_at,
-              deletedAt: lastMessage.deleted_at,
-              isMine: lastMessage.sender_id === userId,
+              id: last_message.id,
+              message: last_message.message,
+              created_at: last_message.created_at,
+              deleted_at: last_message.deleted_at,
+              attachments: last_message.attachments,
+              is_mine: last_message.sender_id === userId,
+              is_deleted: last_message.is_deleted,
             }
           : null,
-        unreadCount: unreadCountMap.get(chat.id) || 0,
-        updatedAt: chat.updated_at,
+        unread_count: unreadCountMap.get(chat.id) || 0,
+        updated_at: chat.updated_at,
       };
     });
 
