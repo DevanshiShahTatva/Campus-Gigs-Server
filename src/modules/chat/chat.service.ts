@@ -391,7 +391,11 @@ export class ChatService {
     };
   }
 
-  async getChatDetails(userId: number, chatId: number) {
+  async getChatDetails(
+    userId: number,
+    chatId: number,
+    query?: { search?: string },
+  ) {
     // Get chat with participants and verify user is a participant
     const chat = await this.prismaService.chat.findFirst({
       where: {
@@ -412,6 +416,19 @@ export class ChatService {
     // Determine the other user in the chat
     const otherUser = chat.user1Id === userId ? chat.user2 : chat.user1;
 
+    let messages: any[] = [];
+    if (query && query.search) {
+      messages = await this.prismaService.message.findMany({
+        where: {
+          chat_id: +chatId,
+          is_deleted: false,
+          message: { contains: query.search, mode: 'insensitive' },
+        },
+        orderBy: { created_at: 'desc' },
+        include: { sender: true, attachments: true },
+      });
+    }
+
     return {
       id: chat.id,
       otherUser: {
@@ -422,6 +439,7 @@ export class ChatService {
       },
       createdAt: chat.created_at,
       updatedAt: chat.updated_at,
+      ...(query && query.search ? { messages } : {}),
     };
   }
 
@@ -538,13 +556,21 @@ export class ChatService {
       };
     });
 
+    let filteredChats = formattedChats;
+    if (query.search) {
+      const searchLower = query.search.toLowerCase();
+      filteredChats = formattedChats.filter(chat =>
+        chat.other_user.name && chat.other_user.name.toLowerCase().includes(searchLower)
+      );
+    }
+
     return {
-      data: formattedChats,
+      data: filteredChats,
       meta: {
-        total,
+        total: filteredChats.length,
         page: query.page,
         pageSize: query.pageSize,
-        totalPages: Math.ceil(total / query.pageSize),
+        totalPages: Math.ceil(filteredChats.length / query.pageSize),
       },
       message: 'User chats fetched successfully',
     };

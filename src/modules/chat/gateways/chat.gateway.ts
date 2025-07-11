@@ -42,7 +42,6 @@ const EVENTS = {
   NEW_MESSAGE: 'newMessage',
   LATEST_MESSAGE: 'latestMessage',
   CHAT_NOTIFICATION: 'chatNotification',
-  USER_TYPING: 'userTyping',
 };
 
 @WebSocketGateway({
@@ -156,18 +155,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const room = `user_${data.userId}`;
     client.leave(room);
     this.logger.log(`User ${client.data.user.id} left user channel ${room}`);
-  }
-
-  @SubscribeMessage('typing')
-  public handleTyping(
-    @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { chatId: number; isTyping: boolean },
-  ): void {
-    const userId = client.data.user.id;
-    client.to(this.getChatRoomName(data.chatId)).emit(EVENTS.USER_TYPING, {
-      userId,
-      isTyping: data.isTyping,
-    });
   }
 
   @SubscribeMessage('markAsRead')

@@ -26,6 +26,7 @@ import {
   SendMessageDto,
   GetChatMessagesDto,
   GetUserChatsDto,
+  GetChatDetailsDto,
 } from './chat.dto';
 import { multerOptions } from 'src/utils/multer';
 
@@ -102,9 +103,10 @@ export class ChatController {
   async getChatDetails(
     @Req() req: AuthenticatedRequest,
     @Param('chatId') chatId: number,
+    @Query() query: GetChatDetailsDto,
   ) {
     const userId = req.user.id;
-    return this.chatService.getChatDetails(userId, +chatId);
+    return this.chatService.getChatDetails(userId, +chatId, query);
   }
 
   @Patch(':chatId/messages/:messageId')

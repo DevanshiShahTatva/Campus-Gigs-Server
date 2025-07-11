@@ -42,6 +42,12 @@ export class GetChatMessagesDto {
   pageSize: number = 20;
 }
 
+export class GetChatDetailsDto {
+  @IsOptional()
+  @IsString()
+  search?: string;
+}
+
 export class GetUserChatsDto {
   @Type(() => Number)
   @IsNumber()
@@ -51,4 +57,8 @@ export class GetUserChatsDto {
   @Type(() => Number)
   @IsNotEmpty()
   pageSize: number = 10;
+
+  @IsOptional()
+  @IsString()
+  search?: string;
 }
