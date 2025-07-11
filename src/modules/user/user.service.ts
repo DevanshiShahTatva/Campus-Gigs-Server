@@ -164,7 +164,10 @@ export class UserService {
     };
 
     if (search) {
-      baseQuery.OR = [{ name: { contains: search, mode: 'insensitive' } }];
+      baseQuery.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ];
     }
 
     const [items, total] = await Promise.all([
@@ -180,17 +183,17 @@ export class UserService {
             include: {
               subscription_plan: {
                 select: {
-                  roles_allowed: true
-                }
-              }
-            }
+                  roles_allowed: true,
+                },
+              },
+            },
           },
         },
       }),
       this.prismaService.user.count({ where: baseQuery }),
     ]);
 
-    const totalPages = Math.ceil(total / items.length);
+    const totalPages = Math.ceil(total / pageSize);
 
     const meta = { page, pageSize, total, totalPages };
 
