@@ -30,6 +30,24 @@ export class ProfileService {
     return { ...excludeFromObject(userdata, ['password']), subscription };
   }
 
+  async updateProfilePhoto(
+    id: string,
+    file: Express.Multer.File,
+  ) {
+    const user = await this.userService.findById(Number(id));
+
+    if (!user) {
+      throw new NotFoundException({
+        status: HttpStatus.NOT_FOUND,
+        message: 'User not found',
+      });
+    }
+
+    const updatedUser = await this.userService.updateUser(Number(id), {}, file);
+    const subscription = await this.buyPlanService.findActivePlan(Number(id));
+    return { ...excludeFromObject(updatedUser, ['password']), subscription };
+  }
+
   async updateProfile(
     id: string,
     body: ProfileUpdateDto,
@@ -51,5 +69,20 @@ export class ProfileService {
     this.notificationGateway.sendProfileUpdateNotification(id, 'Your profile has been updated.');
 
     return { ...excludeFromObject(updatedUser, ['password']), subscription };
+  }
+
+  async deleteProfilePhoto(id: string) {
+    const user = await this.userService.findById(Number(id));
+
+    if (!user) {
+      throw new NotFoundException({
+        status: HttpStatus.NOT_FOUND,
+        message: 'User not found',
+      });
+    }
+
+    await this.userService.deleteProfilePhoto(id);
+
+    return { message: "Profile photo deleted successfully" }
   }
 }

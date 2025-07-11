@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Inject,
   Put,
@@ -48,5 +49,21 @@ export class ProfileController {
   ) {
     const userId = this.userFromToken.getUserIdFromToken(request);
     return this.profileService.updateProfile(userId, body, file);
+  }
+
+  @Put('')
+  @UseInterceptors(FileInterceptor('file', multerOptions))
+  updateProfilePhoto(
+    @Req() request: Request,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const userId = this.userFromToken.getUserIdFromToken(request);
+    return this.profileService.updateProfilePhoto(userId, file);
+  }
+
+  @Delete('')
+  deleteProfilePhoto(@Req() request: Request) {
+    const userId = this.userFromToken.getUserIdFromToken(request);
+    return this.profileService.deleteProfilePhoto(userId);
   }
 }

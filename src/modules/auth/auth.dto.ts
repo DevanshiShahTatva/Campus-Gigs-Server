@@ -24,8 +24,17 @@ export class ResetPasswordDto {
 
 export class AgreedTemsPolicy {
   @IsNumber()
-  userId: number;
+  user_id: number;
 
   @IsBoolean()
   is_agreed: boolean;
+}
+
+export class ChangePasswordDto {
+  @IsString()
+  currentPassword: string;
+
+  @IsString()
+  @MinLength(8)
+  newPassword: string;
 }
