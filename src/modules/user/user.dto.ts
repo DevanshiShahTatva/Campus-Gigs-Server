@@ -86,4 +86,12 @@ export class UserQueryParamsDto {
   @IsOptional()
   @IsString()
   search: string;
+
+  @IsOptional()
+  @IsString()
+  sortKey: string = "name";
+
+  @IsOptional()
+  @IsEnum(["asc", "desc"])
+  sortOrder: string = "desc";
 }

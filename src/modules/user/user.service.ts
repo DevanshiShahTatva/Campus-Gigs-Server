@@ -155,7 +155,7 @@ export class UserService {
   }
 
   async getAllUserList(query: UserQueryParamsDto) {
-    const { page, pageSize, search } = query;
+    const { page, pageSize, search, sortKey, sortOrder } = query;
     console.log(page, pageSize);
     const skip = (page - 1) * pageSize;
 
@@ -173,6 +173,7 @@ export class UserService {
     const [items, total] = await Promise.all([
       this.prismaService.user.findMany({
         where: baseQuery,
+        orderBy: { [sortKey]: sortOrder},
         skip,
         take: pageSize,
         select: {
