@@ -1,11 +1,16 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { CreateBidDto } from './bids.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationGateway } from '../shared/notification.gateway';
+import { sendUserNotification } from '../shared/notification.util';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class BidsService {
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly notificationGateway: NotificationGateway,
+    private readonly notificationsService: NotificationsService,
   ) { }
 
   async createBid(body: CreateBidDto) {
@@ -19,6 +24,16 @@ export class BidsService {
 
     if (existingBid) {
       throw new BadRequestException('You have already submitted a bid for this gig');
+    }
+
+    // Get gig information for notification
+    const gig = await this.prismaService.gigs.findUnique({
+      where: { id: Number(body.gig_id) },
+      select: { id: true, title: true, user_id: true }
+    });
+
+    if (!gig) {
+      throw new BadRequestException('Gig not found');
     }
 
     const bid = await this.prismaService.bid.create({
@@ -52,6 +67,19 @@ export class BidsService {
         },
       },
     });
+
+    // Send notification to gig owner (new bid)
+    await sendUserNotification(
+      this.notificationGateway,
+      this.notificationsService,
+      gig.user_id,
+      {
+        title: 'New Bid Received',
+        message: `You received a new bid for your gig "${gig.title}"`,
+        type: 'success',
+        link: `/gigs/${gig.id}`
+      }
+    );
 
     const ratings = bid.provider.gigs_provider
       .filter((gig) => gig.rating)
@@ -213,7 +241,25 @@ export class BidsService {
         status: 'accepted',
         updated_at: new Date(),
       },
+      include: {
+        provider: {
+          select: { id: true }
+        }
+      }
     });
+
+    // Notify provider (bidder) that their bid was accepted
+    await sendUserNotification(
+      this.notificationGateway,
+      this.notificationsService,
+      updatedBid.provider.id,
+      {
+        title: 'Bid Accepted',
+        message: 'Your bid was accepted!',
+        type: 'success',
+        link: `/gigs/${gig.id}`
+      }
+    );
 
     return updatedBid;
   }
@@ -256,6 +302,19 @@ export class BidsService {
         updated_at: new Date(),
       },
     });
+
+    // Notify provider (bidder) that their bid was rejected
+    await sendUserNotification(
+      this.notificationGateway,
+      this.notificationsService,
+      bid.provider_id,
+      {
+        title: 'Bid Rejected',
+        message: 'Your bid was rejected.',
+        type: 'error',
+        link: `/gigs/${bid.gig_id}`
+      }
+    );
 
     return updatedBid;
   }

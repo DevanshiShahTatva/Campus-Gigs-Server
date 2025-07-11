@@ -59,4 +59,13 @@ export class NotificationGateway implements OnGatewayInit, OnGatewayConnection, 
     this.logger.log(`Emitting profileUpdate to user_${userId}`);
     this.server.to(`user_${userId}`).emit('profileUpdate', { title: 'Profile Updated', message });
   }
+
+  sendBidNotification(userId: string, bidData: any) {
+    this.logger.log(`Emitting newBid to user_${userId}`);
+    this.server.to(`user_${userId}`).emit('newBid', { 
+      title: 'New Bid Received', 
+      message: `You received a new bid for your gig "${bidData.gigTitle}"`,
+      bidData 
+    });
+  }
 } 

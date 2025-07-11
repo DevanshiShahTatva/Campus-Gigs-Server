@@ -22,6 +22,7 @@ import { SubscriptionCronModule } from './modules/subscription/subscription-cron
 import { SubscriptionPlanModule } from './modules/subscription-plan/subscription-plan.module';
 import { TireModule } from './modules/tire/tire.module';
 import { BuyPlanModule } from './modules/buy-plan/buy-plan.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 // middleware
 import { LoggingMiddleware } from './common/middlewares/logging.middleware';
@@ -64,6 +65,7 @@ import { NotificationGateway } from './modules/shared/notification.gateway';
     PrivacyPolicyModule,
     BadgeModule,
     TireModule,
+    NotificationsModule,
 
     // Third-party modules
     ThrottlerModule.forRoot({
