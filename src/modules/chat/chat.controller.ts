@@ -11,6 +11,8 @@ import {
   UseInterceptors,
   UploadedFiles,
   Delete,
+  Patch,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { Request } from 'express';
@@ -103,6 +105,30 @@ export class ChatController {
   ) {
     const userId = req.user.id;
     return this.chatService.getChatDetails(userId, +chatId);
+  }
+
+  @Patch(':chatId/messages/:messageId')
+  @Roles('user')
+  @UseInterceptors(FilesInterceptor('files'))
+  async updateMessage(
+    @Req() req: AuthenticatedRequest,
+    @Param('chatId') chatId: number | ParseIntPipe,
+    @Param('messageId') messageId: number | ParseIntPipe,
+    @Body() body: any,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    return this.chatService.updateMessage({
+      userId: req.user.id,
+      chatId: +chatId,
+      messageId: +messageId,
+      message: body.message,
+      existingAttachmentIds: body.existingAttachmentIds
+        ? typeof body.existingAttachmentIds === 'string'
+          ? JSON.parse(body.existingAttachmentIds)
+          : body.existingAttachmentIds
+        : [],
+      files: files || [],
+    });
   }
 
   @Delete(':messageId')

@@ -283,6 +283,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       .emit('messageDeleted', { message_id: messageId });
   }
 
+  public emitMessageUpdated(chatId: number, message: any): void {
+    this.server
+      .to(this.getChatRoomName(chatId))
+      .emit('messageUpdated', message);
+  }
+
   public emitLatestMessageToUser(userId: number, message: any): void {
     this.server.to(`user_${userId}`).emit(EVENTS.LATEST_MESSAGE, message);
   }

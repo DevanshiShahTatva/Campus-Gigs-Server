@@ -231,12 +231,120 @@ export class ChatService {
   }
 
   // Soft delete message
+  async updateMessage({
+    userId,
+    chatId,
+    messageId,
+    message,
+    existingAttachmentIds = [],
+    files = [],
+  }: {
+    userId: number;
+    chatId: number;
+    messageId: number;
+    message?: string;
+    existingAttachmentIds?: number[];
+    files?: Express.Multer.File[];
+  }) {
+    // 1. Verify message exists, belongs to chat, and user is sender
+    const msg = await this.prismaService.message.findUnique({
+      where: { id: messageId },
+      include: { attachments: true },
+    });
+    if (!msg || msg.chat_id !== chatId || msg.sender_id !== userId) {
+      throw new NotFoundException('Message not found or access denied');
+    }
+
+    // 2. Remove attachments not in existingAttachmentIds
+    let toRemove: { id: number; url: string }[] = [];
+    if (msg.attachments.length > 0 && existingAttachmentIds) {
+      toRemove = msg.attachments.filter(
+        (a) => !existingAttachmentIds.includes(a.id),
+      );
+      // Delete S3 files for removed attachments
+      for (const attachment of toRemove) {
+        try {
+          const fileKey = this.awsS3Service.getKeyFromUrl(attachment.url);
+          await this.awsS3Service.deleteFile(fileKey);
+        } catch (err) {
+          this.logger.warn(
+            `Failed to delete S3 file for attachment id ${attachment.id}: ${err.message}`,
+          );
+        }
+      }
+      if (toRemove.length > 0) {
+        await this.prismaService.attachmentChat.deleteMany({
+          where: { id: { in: toRemove.map((a) => a.id) } },
+        });
+      }
+    }
+
+    // 3. Upload new files and create new attachments
+    const newAttachments: any[] = [];
+    for (const file of (files || []).slice(0, 5)) {
+      const url = await this.awsS3Service.uploadFile(
+        file.buffer,
+        file.originalname,
+        file.mimetype,
+        'chat',
+      );
+      newAttachments.push({
+        url,
+        type: file.mimetype.startsWith('image') ? 'image' : 'file',
+        filename: file.originalname,
+        mimetype: file.mimetype,
+        file_size: file.size,
+        message_id: messageId,
+      });
+    }
+    if (newAttachments.length > 0) {
+      await this.prismaService.attachmentChat.createMany({
+        data: newAttachments,
+      });
+    }
+
+    // 4. Update message text
+    const updated = await this.prismaService.message.update({
+      where: { id: messageId },
+      data: { message: message ?? msg.message },
+      include: { attachments: true },
+    });
+
+    // Emit socket event for message update
+    this.chatGateway.emitMessageUpdated(chatId, updated);
+
+    // Check if this is the latest message in the chat
+    const lastMessage = await this.prismaService.message.findFirst({
+      where: { chat_id: chatId },
+      orderBy: { created_at: 'desc' },
+      include: { attachments: true },
+    });
+    if (lastMessage && lastMessage.id === updated.id) {
+      const chatRecord = await this.prismaService.chat.findUnique({
+        where: { id: chatId },
+        select: { user1Id: true, user2Id: true },
+      });
+      if (chatRecord) {
+        this.chatGateway.emitLatestMessageToUser(chatRecord.user1Id, updated);
+        this.chatGateway.emitLatestMessageToUser(chatRecord.user2Id, updated);
+      }
+    }
+
+    return {
+      success: true,
+      data: updated,
+      message: 'Message updated successfully',
+    };
+  }
+
   async deleteMessage(messageId: number, userId: number) {
     const message = await this.prismaService.message.findUnique({
       where: { id: messageId },
     });
     if (!message || message.sender_id !== userId)
       throw new NotFoundException('Not allowed');
+
+    // 4. Mark message as deleted
     const deletedMessage = await this.prismaService.message.update({
       where: { id: messageId },
       data: { is_deleted: true, deleted_at: new Date() },
@@ -258,7 +366,6 @@ export class ChatService {
         orderBy: { created_at: 'desc' },
         include: { attachments: true },
       });
-      console.log(lastMessage, 'lastMessage');
 
       if (lastMessage && lastMessage.id === deletedMessage.id) {
         const chatRecord = await this.prismaService.chat.findUnique({
