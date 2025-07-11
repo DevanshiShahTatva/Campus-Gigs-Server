@@ -88,6 +88,7 @@ export class GigsService {
         where: baseQuery,
         skip,
         take: pageSize,
+        orderBy: { created_at: "desc" },
         include: {
           user: {
             select: {
