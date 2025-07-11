@@ -1,12 +1,14 @@
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
   IsEmail,
   IsEnum,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
+  Min,
   MinLength,
 } from 'class-validator';
 import { ROLE, PROFILE_TYPE } from 'src/utils/enums';
@@ -66,4 +68,22 @@ export class SignupDto {
   @IsOptional()
   @IsNumber()
   otp_expiry: string;
+}
+
+export class UserQueryParamsDto {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  page: number = 1;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  pageSize: number = 10;
+
+  @IsOptional()
+  @IsString()
+  search: string;
 }
