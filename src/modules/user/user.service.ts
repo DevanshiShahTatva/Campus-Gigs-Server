@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { SignupDto } from './user.dto';
+import { SignupDto, UserQueryParamsDto } from './user.dto';
 import { AwsS3Service } from '../shared/aws-s3.service';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
@@ -152,5 +152,52 @@ export class UserService {
       where: { id: Number(userId)},
       data: { profile: "" }
     })
+  }
+
+  async getAllUserList(query: UserQueryParamsDto) {
+    const { page, pageSize, search, sortKey, sortOrder } = query;
+    console.log(page, pageSize);
+    const skip = (page - 1) * pageSize;
+
+    const baseQuery: any = {
+      AND: [{ role: 'user' }],
+    };
+
+    if (search) {
+      baseQuery.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [items, total] = await Promise.all([
+      this.prismaService.user.findMany({
+        where: baseQuery,
+        orderBy: { [sortKey]: sortOrder},
+        skip,
+        take: pageSize,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          subscription_plans: {
+            include: {
+              subscription_plan: {
+                select: {
+                  roles_allowed: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+      this.prismaService.user.count({ where: baseQuery }),
+    ]);
+
+    const totalPages = Math.ceil(total / pageSize);
+
+    const meta = { page, pageSize, total, totalPages };
+
+    return { data: items, meta: meta, message: 'Users fetch successfully' };
   }
 }

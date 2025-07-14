@@ -47,7 +47,7 @@ export class BidsService {
             id: true,
             name: true,
             profile: true,
-            professional_interests: true,
+            headline: true,
             gigs_provider: {
               where: {
                 is_deleted: false,
@@ -94,12 +94,12 @@ export class BidsService {
     return {
       id: bid.id,
       provider: {
+        totalReview,
         id: bid.provider.id,
         name: bid.provider.name,
         profile: bid.provider.profile,
+        headline: bid.provider.headline,
         avgRating: parseFloat(avgRating.toFixed(1)),
-        totalReview,
-        about: bid.provider.professional_interests,
       },
       status: bid.status,
       description: bid.description,
@@ -160,7 +160,7 @@ export class BidsService {
             id: true,
             name: true,
             profile: true,
-            professional_interests: true,
+            headline: true,
             gigs_provider: {
               where: {
                 is_deleted: false,
@@ -194,12 +194,12 @@ export class BidsService {
       return {
         id: bid.id,
         provider: {
+          totalReview,
           id: bid.provider.id,
           name: bid.provider.name,
           profile: bid.provider.profile,
+          headline: bid.provider.headline,
           avgRating: parseFloat(avgRating.toFixed(1)),
-          totalReview,
-          about: bid.provider.professional_interests
         },
         status: bid.status,
         description: bid.description,

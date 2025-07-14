@@ -15,7 +15,7 @@ import { PaypalModule } from '../../shared/paypal.module';
     PaypalModule,
     forwardRef(() => AuthModule),
     forwardRef(() => SubscriptionPlanModule),
-    UserModule,
+    forwardRef(() => UserModule),
     PrismaModule,
   ],
   controllers: [BuyPlanController],
