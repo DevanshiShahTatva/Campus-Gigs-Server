@@ -15,7 +15,7 @@ import { BuyPlanModule } from '../buy-plan/buy-plan.module';
     forwardRef(() => BuyPlanModule),
     PrismaModule,
     ConfigModule,
-    UserModule,
+    forwardRef(() => UserModule),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
