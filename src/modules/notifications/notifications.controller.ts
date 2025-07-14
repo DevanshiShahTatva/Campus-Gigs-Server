@@ -19,4 +19,10 @@ export class NotificationsController {
     const user = req.user as any;
     return this.notificationsService.markNotificationRead(body.notificationId, Number(user.id));
   }
+
+  @Post('mark-all-read')
+  async markAllNotificationsRead(@Req() req: Request) {
+    const user = req.user as any;
+    return this.notificationsService.markAllNotificationsRead(Number(user.id));
+  }
 } 
