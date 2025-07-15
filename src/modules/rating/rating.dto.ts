@@ -1,4 +1,4 @@
-import { IsInt, IsNumber, IsOptional, IsString, Max, Min, ValidateIf } from "class-validator";
+import { IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Max, Min, ValidateIf } from "class-validator";
 
 export class RatingDto {
 
@@ -21,4 +21,13 @@ export class RatingDto {
   @IsString()
   @ValidateIf((object, value) => object.rating < 4)
   what_provider_done: string;
+}
+
+export class ChallengeComplaintDto {
+  @IsInt()
+  complaint_id: number;
+
+  @IsString()
+  @IsNotEmpty()
+  provider_response: string;
 }

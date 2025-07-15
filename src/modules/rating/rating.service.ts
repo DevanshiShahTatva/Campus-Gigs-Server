@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { RatingDto } from './rating.dto';
+import { ChallengeComplaintDto, RatingDto } from './rating.dto';
 
 @Injectable()
 export class RatingService {
@@ -115,7 +115,6 @@ export class RatingService {
     const complaint = rating.complaint;
 
     return {
-      ratingId: rating.id,
       complaintId: complaint?.id || null,
       gigTitle: gigWithRating.title,
       customerName: gigWithRating.user?.name || '',
@@ -124,6 +123,45 @@ export class RatingService {
       userIssue: complaint?.issue_text || '',
       userExpectation: complaint?.what_provider_done || '',
       complaintDate: complaint?.created_at || null,
+    };
+  }
+
+  async challengeComplaint(body: ChallengeComplaintDto, currentUserId: number) {
+    const { complaint_id, provider_response } = body;
+
+    const complaint = await this.prismaService.complaint.findUnique({
+      where: { id: complaint_id },
+      include: {
+        gig: {
+          select: {
+            provider_id: true,
+          },
+        },
+      },
+    });
+
+    if (!complaint) {
+      throw new BadRequestException('Complaint not found.');
+    }
+
+    if (complaint.gig.provider_id !== currentUserId) {
+      throw new BadRequestException('You are not authorised to challenge this complaint.');
+    }
+
+    if (complaint.is_challenged) {
+      throw new BadRequestException('This complaint has already been challenged.');
+    }
+
+    await this.prismaService.complaint.update({
+      where: { id: complaint_id },
+      data: {
+        provider_response,
+        is_challenged: true,
+      },
+    });
+
+    return {
+      message: 'Complaint challenged successfully.',
     };
   }
 }

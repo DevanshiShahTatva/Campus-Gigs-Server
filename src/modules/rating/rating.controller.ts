@@ -10,7 +10,7 @@ import {
 import { Request } from 'express';
 import { JwtAuthGuard } from 'src/common/guards/jwt.auth.guard';
 import { RatingService } from './rating.service';
-import { RatingDto } from './rating.dto';
+import { ChallengeComplaintDto, RatingDto } from './rating.dto';
 
 @Controller('rating')
 @UseGuards(JwtAuthGuard)
@@ -26,5 +26,11 @@ export class RatingController {
   @Get("get-by-gig/:gigId")
   async getRatingAndComplaintByGigId(@Param() param: { gigId: string }) {
     return this.ratingService.getRatingAndComplaintByGigId(Number(param.gigId));
+  }
+
+  @Post("challenge-complaint")
+  async challengeComplaint(@Body() body: ChallengeComplaintDto, @Req() request: Request) {
+    const user = request.user as any;
+    return this.ratingService.challengeComplaint(body, user?.id);
   }
 }

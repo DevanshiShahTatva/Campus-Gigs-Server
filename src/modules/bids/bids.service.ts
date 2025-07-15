@@ -186,25 +186,29 @@ export class BidsService {
   }
 
   async acceptBid(userId: number, bidId: number) {
-    const gig = await this.prismaService.gigs.findFirst({
-      where: {
-        id: {
-          in: await this.prismaService.bid.findUnique({
-            where: { id: bidId },
-            select: { gig_id: true }
-          }).then(bid => bid?.gig_id ? [bid.gig_id] : []),
-        },
-        user_id: userId,
-        is_deleted: false,
-      },
+
+    const bid = await this.prismaService.bid.findUnique({
+      where: { id: bidId },
       select: {
         id: true,
-        user_id: true,
+        provider_id: true,
+        gig_id: true,
+        gig: {
+          select: {
+            id: true,
+            user_id: true,
+            is_deleted: true,
+          },
+        },
       },
     });
 
-    if (!gig) {
-      throw new BadRequestException('You do not have permission to accept this bid');
+    if (!bid || !bid.gig || bid.gig.is_deleted) {
+      throw new BadRequestException('Bid or Gig not found.');
+    }
+
+    if (bid.gig.user_id !== userId) {
+      throw new BadRequestException('You do not have permission to accept this bid.');
     }
 
     const updatedBid = await this.prismaService.bid.update({
@@ -212,6 +216,13 @@ export class BidsService {
       data: {
         status: 'accepted',
         updated_at: new Date(),
+      },
+    });
+
+    await this.prismaService.gigs.update({
+      where: { id: bid.gig_id },
+      data: {
+        provider_id: bid.provider_id,
       },
     });
 
