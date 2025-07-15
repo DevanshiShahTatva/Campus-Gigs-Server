@@ -21,7 +21,7 @@ export class AwsS3Service {
     buffer: Buffer,
     filename: string,
     mimetype: string,
-    folderName: "gig" | "profile"
+    folderName: "gig" | "profile" | "chat"
   ): Promise<string> {
     
     const fileKey = `${folderName}/${uuidv4()}${path.extname(filename)}`;

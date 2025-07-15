@@ -25,16 +25,22 @@ export enum PROFILE_TYPE {
 }
 
 export enum GIG_STATUS {
-  UNSTARTED = "un_started",
-  INPROGRESS = "in_progress",
-  COMPLETED = "completed",
-  REJECTED = "rejected"
+  UNSTARTED = 'un_started',
+  INPROGRESS = 'in_progress',
+  COMPLETED = 'completed',
+  REJECTED = 'rejected',
 }
 
 export enum BID_STATUS {
   PENDING = 'pending',
   ACCEPTED = 'accepted',
-  REJECTED = 'rejected'
+  REJECTED = 'rejected',
+}
+
+export enum MESSAGE_TYPE {
+  TEXT = 'text',
+  IMAGE = 'image',
+  FILE = 'file',
 }
 
 export enum PRIORITY {
