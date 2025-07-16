@@ -93,13 +93,13 @@ export class RatingService {
           select: {
             id: true,
             rating: true,
+            created_at: true,
             rating_feedback: true,
             complaint: {
               select: {
                 id: true,
                 issue_text: true,
-                what_provider_done: true,
-                created_at: true,
+                what_provider_done: true
               },
             },
           },
@@ -122,7 +122,7 @@ export class RatingService {
       userFeedback: rating.rating_feedback,
       userIssue: complaint?.issue_text || '',
       userExpectation: complaint?.what_provider_done || '',
-      complaintDate: complaint?.created_at || null,
+      ratingDate: rating.created_at || null,
     };
   }
 
