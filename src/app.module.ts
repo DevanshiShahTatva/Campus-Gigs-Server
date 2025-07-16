@@ -42,6 +42,7 @@ import { ChatModule } from './modules/chat/chat.module';
 import { BidsModule } from './modules/bids/bids.module';
 import { SkillsModule } from './modules/skills/skills.module';
 import { ChatGateway } from './modules/chat/gateways/chat.gateway';
+import { PaypalModule } from './modules/paypal/paypal.module';
 
 @Module({
   imports: [
@@ -114,6 +115,7 @@ import { ChatGateway } from './modules/chat/gateways/chat.gateway';
     BidsModule,
     SkillsModule,
     GigsModule,
+    PaypalModule
   ],
   controllers: [AppController],
   providers: [

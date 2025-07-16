@@ -76,6 +76,11 @@ enum PRIORITY {
   low
 }
 
+enum PAYMENT_HISTORY_TYPE {
+  subscription
+  gig_payment
+}
+
 model User {
   id                     Int                   @id @default(autoincrement())
   email                  String                @unique
@@ -110,6 +115,8 @@ model User {
   subscription_plans     SubscriptionPlanBuy[]
   bids                   Bid[]
   challenges_created     Challenge[]           @relation("ChallengedProvider")
+
+  PaymentHistory PaymentHistory[]
 }
 
 model ContactUs {
@@ -343,6 +350,21 @@ model SubscriptionPlanBuy {
   user              User             @relation(fields: [user_id], references: [id])
   subscription_plan SubscriptionPlan @relation(fields: [subscription_plan_id], references: [id])
 }
+
+model PaymentHistory {
+  id             Int                      @id @default(autoincrement())
+  user_id        Int
+  transaction_id String                   @unique
+  amount         Float                    @default(0)
+  type           PAYMENT_HISTORY_TYPE
+  paid_at        DateTime
+  description    String?                    
+  created_at     DateTime                 @default(now())
+
+  // Relations
+  user           User                     @relation(fields: [user_id], references: [id])
+}
+
 
 model GigPayment {
   id             Int                @id @default(autoincrement())
