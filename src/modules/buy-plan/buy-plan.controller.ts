@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt.auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { ROLE } from 'src/utils/enums';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { BuyPlanDto } from './dto/buy-plan.dto';
 
 @Controller('subscription-plan')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -42,10 +43,18 @@ export class BuyPlanController {
   async buyPaidPlan(
     @Param('subscriptionId', ParseIntPipe) subscriptionId: number,
     @Param('orderId') orderId: string,
+    @Body() body: BuyPlanDto,
     @Req() req: any,
   ) {
     const userId = req.user.id;
-    return this.buyPlanService.buyPaidPlan(subscriptionId, orderId, userId);
+    return this.buyPlanService.buyPaidPlan(subscriptionId, orderId, body, userId);
+  }
+
+  @Post('create-subscription-session')
+  async createSubscriptionSession(
+    @Body('subscriptionPlanId') subscriptionPlanId: string,
+  ) {
+    return this.buyPlanService.createSubscriptionSession(Number(subscriptionPlanId));
   }
 
   @Get('current')

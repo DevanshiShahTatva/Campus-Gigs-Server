@@ -24,6 +24,11 @@ export class SubscriptionCronService {
           where: {
             status: BUY_PLAN_STATUS.ACTIVE,
             subscription_expiry_date: { lte: now },
+            NOT: {
+              transaction_id: {
+                startsWith: 'I-',
+              },
+            }
           },
         });
 

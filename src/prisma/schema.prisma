@@ -317,6 +317,8 @@ model SubscriptionPlan {
   most_popular      Boolean        @default(false)
   button_text       String?
   icon              String?
+  paypal_product_id        String?
+  paypal_plan_id            String?
   created_at        DateTime       @default(now())
   updated_at        DateTime       @updatedAt
   is_deleted        Boolean        @default(false)
