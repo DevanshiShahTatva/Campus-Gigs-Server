@@ -285,19 +285,11 @@ export class GigsService {
         AND: [
           { is_deleted: false },
           {
-            OR: [
-              {
-                bids: {
-                  some: {
-                    provider_id: user_id,
-                    status: BID_STATUS.rejected,
-                  },
-                },
+            rating: {
+              rating: {
+                lt: 4,
               },
-              {
-                status: GIG_STATUS.REJECTED,
-              },
-            ],
+            },
           },
         ],
       };

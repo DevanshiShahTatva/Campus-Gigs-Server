@@ -42,6 +42,7 @@ import { ChatModule } from './modules/chat/chat.module';
 import { BidsModule } from './modules/bids/bids.module';
 import { SkillsModule } from './modules/skills/skills.module';
 import { ChatGateway } from './modules/chat/gateways/chat.gateway';
+import { RatingModule } from './modules/rating/rating.module';
 
 @Module({
   imports: [
@@ -71,6 +72,7 @@ import { ChatGateway } from './modules/chat/gateways/chat.gateway';
     PrivacyPolicyModule,
     BadgeModule,
     TireModule,
+    RatingModule,
 
     // Third-party modules
     ThrottlerModule.forRoot({
