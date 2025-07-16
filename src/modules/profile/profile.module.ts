@@ -10,7 +10,7 @@ import { NotificationGateway } from '../shared/notification.gateway';
 @Module({
   imports: [AuthModule, UserModule, forwardRef(() => BuyPlanModule)],
   controllers: [ProfileController],
-  providers: [ProfileService, UserFromToken, NotificationGateway],
+  providers: [ProfileService, UserFromToken],
   exports: [ProfileService],
 })
 

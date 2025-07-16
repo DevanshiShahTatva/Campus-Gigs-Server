@@ -48,6 +48,7 @@ export class NotificationGateway implements OnGatewayInit, OnGatewayConnection, 
       }
       const userId = user.id;
       client.join(`user_${userId}`);
+      this.logger.log(`User ${userId} joined room user_${userId}`);
     });
   }
 
