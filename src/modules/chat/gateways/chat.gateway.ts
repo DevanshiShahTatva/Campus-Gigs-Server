@@ -267,33 +267,16 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       .emit(EVENTS.NEW_MESSAGE, message);
     // Emit chatNotification to recipient (not sender)
     if (message && message.recipient_id && message.sender_id && message.recipient_id !== message.sender_id) {
-      this.logger.log(
-        `Emitting chatNotification to user_${message.recipient_id} on /notification with data: ${JSON.stringify({
-          title: 'New Message',
-          message: `You have a new message from ${message.sender_name || 'someone'}`,
-          chatId,
-          senderId: message.sender_id,
-          link: `/chat/${chatId}`,
-        })}`
-      );
       this.notificationGateway.server
         .to(`user_${message.recipient_id}`)
         .emit('chatNotification', {
           title: 'New Message',
-          message: `You have a new message from ${message.sender_name || 'someone'}`,
+          message: message.message, // show actual message content
           chatId,
           senderId: message.sender_id,
           link: `/chat/${chatId}`,
-        });
-      // Emit a test notification for debugging
-      this.notificationGateway.server
-        .to(`user_${message.recipient_id}`)
-        .emit('chatNotification', {
-          title: 'Test',
-          message: 'This is a test notification',
-          chatId,
-          senderId: message.sender_id,
-          link: `/chat/${chatId}`,
+          senderName: message.sender_name || (message.sender && message.sender.name),
+          senderAvatar: message.sender && message.sender.profile,
         });
     }
   }
