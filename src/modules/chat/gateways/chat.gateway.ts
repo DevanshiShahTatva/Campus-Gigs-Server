@@ -14,6 +14,7 @@ import { ChatService } from '../chat.service';
 import { UserService } from '../../user/user.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { NotificationGateway } from '../../shared/notification.gateway';
 
 interface UserPresence {
   userId: number;
@@ -65,6 +66,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly userService: UserService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    @Inject(forwardRef(() => NotificationGateway))
+    private readonly notificationGateway: NotificationGateway,
   ) {}
 
   public async handleConnection(client: AuthenticatedSocket): Promise<void> {
@@ -262,6 +265,20 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server
       .to(this.getChatRoomName(chatId))
       .emit(EVENTS.NEW_MESSAGE, message);
+    // Emit chatNotification to recipient (not sender)
+    if (message && message.recipient_id && message.sender_id && message.recipient_id !== message.sender_id) {
+      this.notificationGateway.server
+        .to(`user_${message.recipient_id}`)
+        .emit('chatNotification', {
+          title: 'New Message',
+          message: message.message, // show actual message content
+          chatId,
+          senderId: message.sender_id,
+          link: `/chat/${chatId}`,
+          senderName: message.sender_name || (message.sender && message.sender.name),
+          senderAvatar: message.sender && message.sender.profile,
+        });
+    }
   }
 
   public emitMessageDeleted(chatId: number, messageId: number): void {

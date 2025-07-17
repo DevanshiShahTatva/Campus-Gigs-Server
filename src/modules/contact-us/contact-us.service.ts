@@ -10,12 +10,19 @@ import {
 import { CONTACT_US_RESPONSE_PROMPT } from '../../utils/helper';
 import { AiService } from '../shared/ai.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationGateway } from '../shared/notification.gateway';
+import { NotificationsService } from '../notifications/notifications.service';
+import { sendUserNotification } from '../shared/notification.util';
+import { UserService } from '../user/user.service';
 
 @Injectable()
 export class ContactUsService {
   constructor(
     private prismaService: PrismaService,
     private readonly aiService: AiService,
+    private readonly notificationGateway: NotificationGateway,
+    private readonly notificationsService: NotificationsService,
+    private readonly userService: UserService,
   ) {}
 
   async create(createContactUsDto: CreateContactUsDto) {
@@ -82,12 +89,30 @@ export class ContactUsService {
   }
 
   async updateStatus(id: number, updateStatusDto: UpdateContactUsStatusDto) {
-    return this.prismaService.contactUs.update({
+    const updated = await this.prismaService.contactUs.update({
       where: { id },
       data: {
         status: updateStatusDto.status as any, // Type assertion to handle Prisma's enum type
       },
     });
+    // Notify user if status is acknowledged or resolved
+    if (updated && updated.email) {
+      const user = await this.userService.findByEmail(updated.email);
+      if (user && user.id) {
+        await sendUserNotification(
+          this.notificationGateway,
+          this.notificationsService,
+          user.id,
+          {
+            title: 'Support Request Acknowledged',
+            message: 'Your support request has been acknowledged.',
+            type: 'info',
+            link: '/profile?tab=support',
+          }
+        );
+      }
+    }
+    return updated;
   }
 
   async deleteMany(ids: number[]): Promise<{ deletedCount: number }> {

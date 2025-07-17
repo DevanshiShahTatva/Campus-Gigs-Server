@@ -11,7 +11,10 @@ import { BuyPlanService } from '../buy-plan/buy-plan.service';
 
 @Injectable()
 export class ProfileService {
-  constructor(@Inject() private userService: UserService, @Inject() private buyPlanService: BuyPlanService) {}
+  constructor(
+    @Inject() private userService: UserService,
+    @Inject() private buyPlanService: BuyPlanService,
+  ) {}
 
   async getProfile(id: string) {
     const userdata = await this.userService.findById(Number(id));
@@ -59,6 +62,7 @@ export class ProfileService {
 
     const updatedUser = await this.userService.updateUser(Number(id), body, file);
     const subscription = await this.buyPlanService.findActivePlan(Number(id));
+
     return { ...excludeFromObject(updatedUser, ['password']), subscription };
   }
 

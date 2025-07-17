@@ -22,6 +22,7 @@ import { SubscriptionCronModule } from './modules/subscription/subscription-cron
 import { SubscriptionPlanModule } from './modules/subscription-plan/subscription-plan.module';
 import { TireModule } from './modules/tire/tire.module';
 import { BuyPlanModule } from './modules/buy-plan/buy-plan.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 // middleware
 import { LoggingMiddleware } from './common/middlewares/logging.middleware';
@@ -41,6 +42,7 @@ import { PrismaModule } from './modules/prisma/prisma.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { BidsModule } from './modules/bids/bids.module';
 import { SkillsModule } from './modules/skills/skills.module';
+import { NotificationGateway } from './modules/shared/notification.gateway';
 import { ChatGateway } from './modules/chat/gateways/chat.gateway';
 import { PaypalModule } from './modules/paypal/paypal.module';
 import { RatingModule } from './modules/rating/rating.module';
@@ -73,6 +75,7 @@ import { RatingModule } from './modules/rating/rating.module';
     PrivacyPolicyModule,
     BadgeModule,
     TireModule,
+    NotificationsModule,
     RatingModule,
 
     // Third-party modules
@@ -122,6 +125,7 @@ import { RatingModule } from './modules/rating/rating.module';
   controllers: [AppController],
   providers: [
     AppService,
+    NotificationGateway,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
