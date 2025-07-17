@@ -215,7 +215,7 @@ export class PaypalService {
 
     const response = await http.post('/v1/billing/subscriptions', requestBody);
 
-    return response.data; // contains subscriptionId + approval link
+    return response.data;
   }
 
   async cancelSubscription(subscriptionId: string): Promise<boolean> {

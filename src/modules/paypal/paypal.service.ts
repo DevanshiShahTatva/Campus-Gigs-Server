@@ -116,7 +116,8 @@ export class PaypalWebhookService {
               transaction_id: transactionId,
               amount: parseFloat(sale.amount.total),
               paid_at: new Date(sale.create_time),
-              description: "Payment has been retrived successfully as you have enabled auto debit."
+              description:
+                'Payment has been retrived successfully as you have enabled auto debit.',
             },
           });
 

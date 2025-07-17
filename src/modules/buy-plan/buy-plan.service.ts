@@ -154,7 +154,7 @@ export class BuyPlanService {
           user_id: userId,
           transaction_id: body.isAutoDebit ? body.auto_deduct_id : capture.id,
           type: PAYMENT_HISTORY_TYPE.subscription,
-          description: "Payemnt successfully paid for subscription",
+          description: "Payemnt successfully paid for subscription.",
           amount: price,
           paid_at: new Date()
         }
