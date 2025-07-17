@@ -99,6 +99,8 @@ export class RatingService {
               select: {
                 id: true,
                 issue_text: true,
+                updated_at: true,
+                provider_response: true,
                 what_provider_done: true
               },
             },
@@ -121,8 +123,10 @@ export class RatingService {
       userRating: rating.rating,
       userFeedback: rating.rating_feedback,
       userIssue: complaint?.issue_text || '',
+      providerResponse: complaint?.provider_response || '',
       userExpectation: complaint?.what_provider_done || '',
       ratingDate: rating.created_at || null,
+      providerChallengeDate: complaint?.updated_at || null,
     };
   }
 
