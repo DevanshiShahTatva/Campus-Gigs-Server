@@ -44,6 +44,7 @@ import { BidsModule } from './modules/bids/bids.module';
 import { SkillsModule } from './modules/skills/skills.module';
 import { NotificationGateway } from './modules/shared/notification.gateway';
 import { ChatGateway } from './modules/chat/gateways/chat.gateway';
+import { RatingModule } from './modules/rating/rating.module';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { ChatGateway } from './modules/chat/gateways/chat.gateway';
     BadgeModule,
     TireModule,
     NotificationsModule,
+    RatingModule,
 
     // Third-party modules
     ThrottlerModule.forRoot({
