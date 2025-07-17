@@ -120,6 +120,7 @@ export class BuyPlanService {
           where: { id: existingActivePlan.id },
           data: {
             status: BY_PLAN_STATUS.cancelled,
+            is_auto_debit: false,
             subscription_expiry_date: new Date(),
           },
         });
