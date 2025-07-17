@@ -46,6 +46,7 @@ import { NotificationGateway } from './modules/shared/notification.gateway';
 import { ChatGateway } from './modules/chat/gateways/chat.gateway';
 import { PaypalModule } from './modules/paypal/paypal.module';
 import { RatingModule } from './modules/rating/rating.module';
+import { PaymentHistoryModule } from './modules/paymentHistory/paymentHistory.module';
 
 @Module({
   imports: [
@@ -120,7 +121,8 @@ import { RatingModule } from './modules/rating/rating.module';
     BidsModule,
     SkillsModule,
     GigsModule,
-    PaypalModule
+    PaypalModule,
+    PaymentHistoryModule
   ],
   controllers: [AppController],
   providers: [
