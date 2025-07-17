@@ -126,6 +126,7 @@ export class PaypalService {
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
     });
   }
@@ -207,15 +208,32 @@ export class PaypalService {
       application_context: {
         brand_name: 'CampusGigs',
         user_action: 'SUBSCRIBE_NOW',
-        // return_url: `${this.configService.get<string>('CLIENT_URL')!}/payment/success`,
-        return_url: `https://ec2f23bdddea.ngrok-free.app/payment/success`,
-        // cancel_url: `${this.configService.get<string>('CLIENT_URL')!}/payment/cancel`,
-        cancel_url: `https://ec2f23bdddea.ngrok-free.app/payment/cancel`,
+        return_url: `${this.configService.get<string>('CLIENT_URL')!}/payment/success`,
+        cancel_url: `${this.configService.get<string>('CLIENT_URL')!}/payment/cancel`,
       },
     };
 
     const response = await http.post('/v1/billing/subscriptions', requestBody);
 
     return response.data; // contains subscriptionId + approval link
+  }
+
+  async cancelSubscription(subscriptionId: string): Promise<boolean> {
+    try {
+      const http = await this.getHttpClient();
+
+      const response = await http.post(
+        `/v1/billing/subscriptions/${subscriptionId}/cancel`,
+        { reason: 'Reactivating the subscription' },
+      );
+
+      return response.status === 204;
+    } catch (error) {
+      console.error(
+        'PayPal subscription cancel error:',
+        error?.response?.data || error.message,
+      );
+      return false;
+    }
   }
 }

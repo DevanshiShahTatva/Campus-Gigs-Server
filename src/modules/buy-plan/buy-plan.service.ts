@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { PaypalService } from '../../shared/paypal.service';
 
-import { BY_PLAN_STATUS } from '@prisma/client';
+import { BY_PLAN_STATUS, PAYMENT_HISTORY_TYPE } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { BuyPlanDto } from './dto/buy-plan.dto';
 
@@ -113,6 +113,9 @@ export class BuyPlanService {
 
       // 4. Cancel existing active plan if exists
       if (existingActivePlan) {
+        if (existingActivePlan.is_auto_debit) {
+          await this.paypalService.cancelSubscription(existingActivePlan.transaction_id as string);
+        };
         await prisma.subscriptionPlanBuy.update({
           where: { id: existingActivePlan.id },
           data: {
@@ -130,6 +133,7 @@ export class BuyPlanService {
           status: BY_PLAN_STATUS.active,
           price: price,
           transaction_id: body.isAutoDebit ? body.auto_deduct_id : capture.id,
+          is_auto_debit: body.isAutoDebit,
           subscription_expiry_date: body.isAutoDebit ? null : (() => {
             const now = new Date();
             const expiry = new Date(now);
@@ -140,6 +144,19 @@ export class BuyPlanService {
         include: {
           subscription_plan: true,
         },
+      });
+
+
+      // add payment history
+      await this.prismaService.paymentHistory.create({
+        data: {
+          user_id: userId,
+          transaction_id: body.isAutoDebit ? body.auto_deduct_id : capture.id,
+          type: PAYMENT_HISTORY_TYPE.subscription,
+          description: "Payemnt successfully paid for subscription",
+          amount: price,
+          paid_at: new Date()
+        }
       });
 
       return newPlan;
@@ -257,6 +274,42 @@ export class BuyPlanService {
       subscriptionId: subscription.id,
       approvalLink,
     };
+  }
+
+  async cancelAutoDebit(subscriptionId: string, userId: number) {
+    const plan = await this.prismaService.subscriptionPlanBuy.findFirst({
+      where: {
+        transaction_id: subscriptionId,
+        user_id: userId,
+        status: BY_PLAN_STATUS.active,
+      },
+    });
+
+    if (!plan) {
+      throw new NotFoundException('Active subscription not found');
+    }
+
+    const isCancelled = await this.paypalService.cancelSubscription(subscriptionId);
+
+    if (!isCancelled) {
+      throw new BadRequestException('Failed to cancel subscription on PayPal');
+    }
+
+    // Optional: mark in DB as cancelled immediately
+    await this.prismaService.subscriptionPlanBuy.update({
+      where: { id: plan.id },
+      data: {
+        is_auto_debit: false,
+        subscription_expiry_date: (() => {
+            const now = new Date(plan.created_at);
+            const expiry = new Date(now);
+            expiry.setMonth(expiry.getMonth() + 1);
+            return expiry;
+          })(),
+      },
+    });
+
+    return { message: 'Subscription cancelled successfully' };
   }
 
   async getPlanHistory(userId: number) {

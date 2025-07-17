@@ -10,6 +10,7 @@ import {
   ParseIntPipe,
   HttpCode,
   HttpStatus,
+  Put,
 } from '@nestjs/common';
 import { BuyPlanService } from './buy-plan.service';
 import { CreateBuyPlanDto } from './dto/create-buy-plan.dto';
@@ -55,6 +56,16 @@ export class BuyPlanController {
     @Body('subscriptionPlanId') subscriptionPlanId: string,
   ) {
     return this.buyPlanService.createSubscriptionSession(Number(subscriptionPlanId));
+  }
+
+  @Put('cancel-subscription/:subscriptionId')
+    @HttpCode(HttpStatus.OK)
+    async cancelAutoDebit(
+      @Param('subscriptionId') subscriptionId: string,
+      @Req() req,
+    ) {
+      const userId = req.user.id;
+      return this.buyPlanService.cancelAutoDebit(subscriptionId, userId);
   }
 
   @Get('current')
