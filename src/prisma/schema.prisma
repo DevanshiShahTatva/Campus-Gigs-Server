@@ -117,6 +117,7 @@ model User {
   challenges_created     Challenge[]           @relation("ChallengedProvider")
 
   PaymentHistory PaymentHistory[]
+  Rating                 Rating[]              @relation("RatingUser")
 }
 
 model ContactUs {
@@ -384,6 +385,7 @@ model GigPayment {
 model Rating {
   id              Int      @id @default(autoincrement())
   gig_id          Int      @unique
+  created_by_id   Int?
   rating          Int      @default(1) // 1-5 stars
   rating_feedback String
   created_at      DateTime @default(now())
@@ -392,19 +394,23 @@ model Rating {
 
   // relations
   gig       Gigs       @relation(fields: [gig_id], references: [id])
+  user      User?      @relation("RatingUser", fields: [created_by_id], references: [id])
   complaint Complaint?
 }
 
 model Complaint {
-  id                Int      @id @default(autoincrement())
-  rating_id         Int      @unique
-  gig_id            Int
-  issue_text        String?
-  provider_response String?
-  is_challenged     Boolean  @default(false)
-  created_at        DateTime @default(now())
-  updated_at        DateTime @updatedAt
-  is_deleted        Boolean  @default(false)
+  id                 Int      @id @default(autoincrement())
+  rating_id          Int      @unique
+  gig_id             Int
+  issue_text         String?
+  what_provider_done String?
+  provider_response  String?
+  admin_feedback     String?
+  is_challenged      Boolean  @default(false)
+  outcome            OUTCOME  @default(pending)
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+  is_deleted         Boolean  @default(false)
 
   // relations
   rating     Rating      @relation(fields: [rating_id], references: [id])

@@ -43,6 +43,7 @@ import { BidsModule } from './modules/bids/bids.module';
 import { SkillsModule } from './modules/skills/skills.module';
 import { ChatGateway } from './modules/chat/gateways/chat.gateway';
 import { PaypalModule } from './modules/paypal/paypal.module';
+import { RatingModule } from './modules/rating/rating.module';
 
 @Module({
   imports: [
@@ -72,6 +73,7 @@ import { PaypalModule } from './modules/paypal/paypal.module';
     PrivacyPolicyModule,
     BadgeModule,
     TireModule,
+    RatingModule,
 
     // Third-party modules
     ThrottlerModule.forRoot({
