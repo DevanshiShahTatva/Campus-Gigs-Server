@@ -146,10 +146,25 @@ export class ChatService {
       },
     });
 
-    this.chatGateway
-      .getServer()
-      .to(`chat_${chatId}`)
-      .emit('newMessage', { message });
+    // Determine recipient
+    let recipientId: number;
+    let senderName: string = message.sender?.name || 'someone';
+    if (chat.user1Id === senderId) {
+      recipientId = chat.user2Id;
+    } else {
+      recipientId = chat.user1Id;
+    }
+
+    // Emit to chat room
+    this.chatGateway.getServer().to(`chat_${chatId}`).emit('newMessage', { message });
+
+    // Emit chat notification to recipient
+    this.chatGateway.emitNewMessage(chatId, {
+      ...message,
+      recipient_id: recipientId,
+      sender_id: senderId,
+      sender_name: senderName,
+    });
 
     // Emit latest message to both users' sidebar channels
     const chatRecord = await this.prismaService.chat.findUnique({

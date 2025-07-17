@@ -138,7 +138,7 @@ DATABASE_URL="postgresql://postgres:admin123@localhost:5432/my_project_db"
 Run the following command to apply migrations:
 
 ```bash
-npx prisma migrate dev
+npx prisma migrate dev --name <your message>
 ```
 
 ---
