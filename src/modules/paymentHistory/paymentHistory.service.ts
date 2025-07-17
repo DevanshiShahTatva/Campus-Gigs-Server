@@ -6,7 +6,7 @@ export class PaymentHistoryService {
   constructor(private prismaService: PrismaService) {}
 
   async getPaymentHistory(userId: number) {
-    await this.prismaService.paymentHistory.findMany({
+    return await this.prismaService.paymentHistory.findMany({
       where: { user_id: userId },
     });
   }

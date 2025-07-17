@@ -1,6 +1,8 @@
-import { Controller, Get, Req } from '@nestjs/common';
+import { Controller, Get, Req, UseGuards } from '@nestjs/common';
 import { PaymentHistoryService } from './paymentHistory.service';
+import { JwtAuthGuard } from 'src/common/guards/jwt.auth.guard';
 
+@UseGuards(JwtAuthGuard)
 @Controller('payment-history')
 export class PaymentHistoryController {
   constructor(private paymentHistoryService: PaymentHistoryService) {}
