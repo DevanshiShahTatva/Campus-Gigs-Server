@@ -126,6 +126,101 @@ export class UserService {
     return await this.prismaService.user.findUnique({ where: { email } });
   }
 
+  async findPortfolioById(id: number) {
+  const user = await this.prismaService.user.findUnique({
+    where: { id },
+    include: {
+      skills: {
+        select: { id: true, name: true },
+      },
+      gigs_provider: {
+        select: {
+          id: true,
+          title: true,
+          images: true,
+          description: true,
+          skills: true,
+          price: true,
+          gig_category: true,
+          certifications: true,
+          rating: {
+            where: { is_deleted: false },
+            select: {
+              id: true,
+              rating: true,
+              rating_feedback: true,
+              created_at: true,
+              user: {
+                select: { id: true, name: true, profile: true },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!user) return null;
+
+  //  Current User Ratings & Review Count
+  const gigsWithRatings = user.gigs_provider.filter(
+    (gig) => gig.rating && gig.rating.rating > 0
+  );
+  const userRatings = gigsWithRatings.map((gig) => gig.rating!.rating);
+  const userAvgRating =
+    userRatings.length > 0
+      ? userRatings.reduce((acc, curr) => acc + curr, 0) / userRatings.length
+      : 0;
+  const userReviewCount = userRatings.length;
+
+  //  All Users Avg Ratings & Review Counts
+  const allUsers = await this.prismaService.user.findMany({
+    where: { is_deleted: false },
+    select: {
+      gigs_provider: {
+        select: {
+          rating: {
+            where: { is_deleted: false },
+            select: { rating: true },
+          },
+        },
+      },
+    },
+  });
+
+  let highestAvgRating = 0;
+  let highestReviewCount = 0;
+
+  allUsers.forEach((u) => {
+    const ratings = u.gigs_provider.flatMap((gig) =>
+      gig.rating ? [gig.rating.rating] : []
+    );
+    if (ratings.length > 0) {
+      const avg =
+        ratings.reduce((acc, curr) => acc + curr, 0) / ratings.length;
+      if (avg > highestAvgRating) highestAvgRating = avg;
+    }
+    if (ratings.length > highestReviewCount)
+      highestReviewCount = ratings.length;
+  });
+
+  //  Checks
+  const isTopRated = userAvgRating >= highestAvgRating;
+  const isMostRated = userReviewCount >= highestReviewCount;
+
+  return {
+    ...user,
+    gigs_provider: gigsWithRatings,
+    userAvgRating: parseFloat(userAvgRating.toFixed(2)),
+    highestAvgRating: parseFloat(highestAvgRating.toFixed(2)),
+    userReviewCount,
+    highestReviewCount,
+    isTopRated, //  Current user has highest avg rating
+    isMostRated, //  Current user has most total reviews
+  };
+}
+
+
   async findById(id: number) {
     return this.prismaService.user.findUnique({
       where: { id },
@@ -136,37 +231,10 @@ export class UserService {
             name: true,
           },
         },
-        gigs_provider: {
-          select: {
-            id: true,
-            title: true,
-            images: true,
-            description: true,
-            skills: true,
-            price: true,
-            gig_category:  true,
-            certifications: true,
-            rating: {
-              where: { is_deleted: false },
-              select: {
-                id: true,
-                rating: true,
-                rating_feedback: true,
-                created_at: true,
-                user: {
-                  select: {
-                    id: true,
-                    name: true,
-                    profile: true,
-                  },
-                },
-              },
-            },
-          },
-        },
       },
     });
   }
+
 
   async deleteProfilePhoto(userId: string) {
     const user = await this.prismaService.user.findUnique({ where: { id: Number(userId) } });
