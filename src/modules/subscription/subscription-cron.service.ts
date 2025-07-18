@@ -19,13 +19,17 @@ export class SubscriptionCronService {
       const now = new Date();
 
       // Find all active plans that have expired
-      const expiredPlans =
-        await this.prismaService.subscriptionPlanBuy.findMany({
-          where: {
-            status: BUY_PLAN_STATUS.ACTIVE,
-            subscription_expiry_date: { lte: now },
-          },
-        });
+      const expiredPlans = await this.prismaService.subscriptionPlanBuy.findMany({
+        where: {
+          status: BUY_PLAN_STATUS.ACTIVE,
+          subscription_expiry_date: { lte: now },
+          OR: [
+            { is_auto_debit: false },
+            { transaction_id: { not: { startsWith: 'I-' } } },
+            { subscription_expiry_date: { not: null } },
+          ],
+        },
+      });
 
       this.logger.log(
         `Found ${expiredPlans.length} expired subscriptions to process`,

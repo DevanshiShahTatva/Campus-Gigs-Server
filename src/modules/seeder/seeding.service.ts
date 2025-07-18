@@ -101,6 +101,8 @@ export class SeedingService {
           'Custom profile badge',
         ],
         can_get_badge: true,
+        paypal_product_id: "",
+        paypal_plan_id: "",
       },
       {
         name: 'Pro',
@@ -126,6 +128,8 @@ export class SeedingService {
           'Unlimited bids',
         ],
         can_get_badge: true,
+        paypal_product_id: "",
+        paypal_plan_id: "",
       },
     ];
 

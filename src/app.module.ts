@@ -44,7 +44,9 @@ import { BidsModule } from './modules/bids/bids.module';
 import { SkillsModule } from './modules/skills/skills.module';
 import { NotificationGateway } from './modules/shared/notification.gateway';
 import { ChatGateway } from './modules/chat/gateways/chat.gateway';
+import { PaypalModule } from './modules/paypal/paypal.module';
 import { RatingModule } from './modules/rating/rating.module';
+import { PaymentHistoryModule } from './modules/paymentHistory/paymentHistory.module';
 
 @Module({
   imports: [
@@ -119,6 +121,8 @@ import { RatingModule } from './modules/rating/rating.module';
     BidsModule,
     SkillsModule,
     GigsModule,
+    PaypalModule,
+    PaymentHistoryModule
   ],
   controllers: [AppController],
   providers: [
