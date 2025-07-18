@@ -136,6 +136,34 @@ export class UserService {
             name: true,
           },
         },
+        gigs_provider: {
+          select: {
+            id: true,
+            title: true,
+            images: true,
+            description: true,
+            skills: true,
+            price: true,
+            gig_category:  true,
+            certifications: true,
+            rating: {
+              where: { is_deleted: false },
+              select: {
+                id: true,
+                rating: true,
+                rating_feedback: true,
+                created_at: true,
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    profile: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
   }
