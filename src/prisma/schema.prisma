@@ -220,15 +220,15 @@ model Gigs {
   is_deleted      Boolean      @default(false)
 
   // relation
-  user         User         @relation("GigsUser", fields: [user_id], references: [id])
-  provider     User?        @relation("GigsProvider", fields: [provider_id], references: [id])
-  gig_category GigsCategory @relation(fields: [gig_category_id], references: [id])
-  skills       Skills[]     @relation("GigsSkills")
-  bids         Bid[]
-  gig_payments GigPayment[]
-  rating       Rating?
-  complaints   Complaint[]
-  challenges   Challenge[]  @relation("GigChallenges")
+  user          User         @relation("GigsUser", fields: [user_id], references: [id])
+  provider      User?        @relation("GigsProvider", fields: [provider_id], references: [id])
+  gig_category  GigsCategory @relation(fields: [gig_category_id], references: [id])
+  skills        Skills[]     @relation("GigsSkills")
+  bids          Bid[]
+  gig_payment   GigPayment?
+  rating        Rating?
+  complaints    Complaint[]
+  challenges    Challenge[]  @relation("GigChallenges")
 }
 
 model Chat {
@@ -399,7 +399,7 @@ model PaymentHistory {
 
 model GigPayment {
   id             Int                @id @default(autoincrement())
-  gig_id         Int
+  gig_id         Int                @unique
   transaction_id String
   payment_status GIG_PAYMENT_STATUS @default(hold)
   created_at     DateTime           @default(now())
