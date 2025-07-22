@@ -4,11 +4,12 @@ import { NotificationsController } from './notifications.controller';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthModule } from '../auth/auth.module';
 import { UserModule } from '../user/user.module';
+import { NotificationGateway } from '../shared/notification.gateway';
 
 @Module({
   imports: [AuthModule, UserModule],
-  providers: [NotificationsService, PrismaService],
+  providers: [NotificationsService, PrismaService, NotificationGateway],
   controllers: [NotificationsController],
-  exports: [NotificationsService],
+  exports: [NotificationsService, NotificationGateway],
 })
 export class NotificationsModule {} 
