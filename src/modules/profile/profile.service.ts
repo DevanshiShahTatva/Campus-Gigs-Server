@@ -16,6 +16,18 @@ export class ProfileService {
     @Inject() private buyPlanService: BuyPlanService,
   ) {}
 
+  async getProviderProfile(id: string) {
+    const userdata = await this.userService.findPortfolioById(Number(id));
+    if (!userdata) {
+      throw new NotFoundException({
+        status: HttpStatus.NOT_FOUND,
+        message: 'User not found',
+      });
+    }
+    const subscription = await this.buyPlanService.findActivePlan(Number(id));
+    return { ...excludeFromObject(userdata, ['password']), subscription };
+  }
+
   async getProfile(id: string) {
     const userdata = await this.userService.findById(Number(id));
     if (!userdata) {

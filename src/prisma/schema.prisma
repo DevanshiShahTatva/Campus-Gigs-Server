@@ -117,7 +117,9 @@ model User {
   challenges_created     Challenge[]           @relation("ChallengedProvider")
 
   PaymentHistory PaymentHistory[]
-  Rating                 Rating[]              @relation("RatingUser")
+  Rating         Rating[]         @relation("RatingUser")
+
+  SnapshotSubscriptionPlan SnapshotSubscriptionPlan[]
 }
 
 model ContactUs {
@@ -200,7 +202,7 @@ model Bid {
 model Gigs {
   id              Int          @id @default(autoincrement())
   user_id         Int
-  provider_id     Int?         
+  provider_id     Int?
   title           String
   images          String[]     @default([])
   description     String
@@ -249,19 +251,19 @@ model Chat {
 }
 
 model Message {
-  id           Int          @id @default(autoincrement())
-  sender       User         @relation(fields: [sender_id], references: [id])
-  sender_id    Int
-  chat         Chat         @relation(fields: [chat_id], references: [id])
-  chat_id      Int
-  message      String
-  is_read      Boolean      @default(false)
-  read_at      DateTime?
-  created_at   DateTime     @default(now())
-  updated_at   DateTime     @updatedAt
-  is_deleted   Boolean      @default(false)
-  deleted_at   DateTime?
-  attachments  AttachmentChat[]
+  id          Int              @id @default(autoincrement())
+  sender      User             @relation(fields: [sender_id], references: [id])
+  sender_id   Int
+  chat        Chat             @relation(fields: [chat_id], references: [id])
+  chat_id     Int
+  message     String
+  is_read     Boolean          @default(false)
+  read_at     DateTime?
+  created_at  DateTime         @default(now())
+  updated_at  DateTime         @updatedAt
+  is_deleted  Boolean          @default(false)
+  deleted_at  DateTime?
+  attachments AttachmentChat[]
 }
 
 model AttachmentChat {
@@ -269,7 +271,7 @@ model AttachmentChat {
   message    Message  @relation(fields: [message_id], references: [id])
   message_id Int
   url        String
-  type       String   // 'image', 'file', etc.
+  type       String // 'image', 'file', etc.
   filename   String
   mimetype   String
   file_size  Int
@@ -289,16 +291,16 @@ model Tire {
 }
 
 model Skills {
-  id         Int           @id @default(autoincrement())
-  name       String        @unique
+  id         Int      @id @default(autoincrement())
+  name       String   @unique
   categoryId Int?
-  created_at DateTime      @default(now())
-  updated_at DateTime      @updatedAt
-  is_deleted Boolean       @default(false)
- 
-  category   GigsCategory? @relation(fields: [categoryId], references: [id])
-  gigs       Gigs[]        @relation("GigsSkills")
-  users User[] @relation("UserSkills")
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  is_deleted Boolean  @default(false)
+
+  category GigsCategory? @relation(fields: [categoryId], references: [id])
+  gigs     Gigs[]        @relation("GigsSkills")
+  users    User[]        @relation("UserSkills")
 }
 
 model GigsCategory {
@@ -337,8 +339,35 @@ model SubscriptionPlan {
   is_deleted        Boolean        @default(false)
 
   // relations
-  subscriptions SubscriptionPlanBuy[]
+  user_bought_plans SnapshotSubscriptionPlan[] @relation("BasePlan")
 }
+
+model SnapshotSubscriptionPlan {
+  id                   Int               @id @default(autoincrement())
+  user_id              Int
+  base_plan_id         Int?
+  name                 String
+  description          String?
+  price                Float
+  is_pro               Boolean           @default(false)
+  roles_allowed        PROFILE_TYPE[]
+  max_bid_per_month    Int?              @default(0)
+  max_gig_per_month    Int?              @default(0)
+  features             String[]
+  can_get_badge        Boolean           @default(false)
+  most_popular         Boolean           @default(false)
+  button_text          String?
+  icon                 String?
+  paypal_product_id    String?
+  paypal_plan_id       String?
+  created_at           DateTime          @default(now())
+
+  // Relations
+  SubscriptionPlanBuy            SubscriptionPlanBuy[]
+  user User @relation(fields: [user_id], references: [id])
+  base_plan         SubscriptionPlan? @relation("BasePlan", fields: [base_plan_id], references: [id], onDelete: SetNull)
+}
+
 
 model SubscriptionPlanBuy {
   id                       Int            @id @default(autoincrement())
@@ -354,25 +383,24 @@ model SubscriptionPlanBuy {
   is_deleted               Boolean        @default(false)
 
   // relations
-  user              User             @relation(fields: [user_id], references: [id])
-  subscription_plan SubscriptionPlan @relation(fields: [subscription_plan_id], references: [id])
+  user User @relation(fields: [user_id], references: [id])
+  subscription_plan     SnapshotSubscriptionPlan        @relation(fields: [subscription_plan_id], references: [id])
 }
 
 model PaymentHistory {
-  id             Int                      @id @default(autoincrement())
+  id             Int                  @id @default(autoincrement())
   user_id        Int
-  transaction_id String                   @unique
-  amount         Float                    @default(0)
+  transaction_id String               @unique
+  amount         Float                @default(0)
   type           PAYMENT_HISTORY_TYPE
   paid_at        DateTime
-  description    String?                    
-  created_at     DateTime                 @default(now())
-  is_deleted     Boolean                  @default(false)
+  description    String?
+  created_at     DateTime             @default(now())
+  is_deleted     Boolean              @default(false)
 
   // Relations
-  user           User                     @relation(fields: [user_id], references: [id])
+  user User @relation(fields: [user_id], references: [id])
 }
-
 
 model GigPayment {
   id             Int                @id @default(autoincrement())

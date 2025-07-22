@@ -37,7 +37,7 @@ export class ProfileController {
   getProviderProfile(@Req() request: Request) {
     // Extract id from params
     const id = request.params.id;
-    return this.profileService.getProfile(id);
+    return this.profileService.getProviderProfile(id);
   }
 
   @Put('')
