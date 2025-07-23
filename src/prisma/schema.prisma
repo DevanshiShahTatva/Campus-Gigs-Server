@@ -218,6 +218,11 @@ model Gigs {
   created_at      DateTime     @default(now())
   updated_at      DateTime     @updatedAt
   is_deleted      Boolean      @default(false)
+  has_before_reminder_sent Boolean    @default(false)
+  has_after_reminder_sent  Boolean    @default(false)
+  rating_reminder_time     DateTime?
+  payment_release_time     DateTime?
+  completed_at             DateTime?
 
   // relation
   user         User         @relation("GigsUser", fields: [user_id], references: [id])

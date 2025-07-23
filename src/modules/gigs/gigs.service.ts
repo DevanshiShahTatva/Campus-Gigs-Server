@@ -374,6 +374,11 @@ export class GigsService {
       where: { id: Number(gigId) },
       data: {
         status: body.status,
+        completed_at: body.status === GIG_STATUS.COMPLETED ? new Date() : undefined,
+        rating_reminder_time: body.status === GIG_STATUS.COMPLETED ? new Date(Date.now() + 5 * 60 * 1000) : undefined,
+        payment_release_time: body.status === GIG_STATUS.COMPLETED ? new Date(Date.now() + 10 * 60 * 1000) : undefined,
+        has_before_reminder_sent: body.status === GIG_STATUS.COMPLETED ? false : undefined,
+        has_after_reminder_sent: body.status === GIG_STATUS.COMPLETED ? false : undefined,
       },
     });
 

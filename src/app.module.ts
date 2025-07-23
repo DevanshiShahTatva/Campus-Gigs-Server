@@ -47,10 +47,12 @@ import { ChatGateway } from './modules/chat/gateways/chat.gateway';
 import { PaypalModule } from './modules/paypal/paypal.module';
 import { RatingModule } from './modules/rating/rating.module';
 import { PaymentHistoryModule } from './modules/paymentHistory/paymentHistory.module';
+import { GigNotificationModule } from './modules/gig-notification/gig-notification.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
-    // Config and core modules
+    ScheduleModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ['.env'],
@@ -119,6 +121,7 @@ import { PaymentHistoryModule } from './modules/paymentHistory/paymentHistory.mo
     PrivacyPolicyModule,
     GigsCategoryModule,
     BidsModule,
+    GigNotificationModule,
     SkillsModule,
     GigsModule,
     PaypalModule,
