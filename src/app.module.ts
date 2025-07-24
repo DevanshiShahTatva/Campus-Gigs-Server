@@ -47,6 +47,7 @@ import { ChatGateway } from './modules/chat/gateways/chat.gateway';
 import { PaypalModule } from './modules/paypal/paypal.module';
 import { RatingModule } from './modules/rating/rating.module';
 import { PaymentHistoryModule } from './modules/paymentHistory/paymentHistory.module';
+import { StripeModule } from './modules/stripe/stripe.module';
 
 @Module({
   imports: [
@@ -122,7 +123,8 @@ import { PaymentHistoryModule } from './modules/paymentHistory/paymentHistory.mo
     SkillsModule,
     GigsModule,
     PaypalModule,
-    PaymentHistoryModule
+    PaymentHistoryModule,
+    StripeModule
   ],
   controllers: [AppController],
   providers: [

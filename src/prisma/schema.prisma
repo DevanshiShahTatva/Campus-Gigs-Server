@@ -115,6 +115,7 @@ model User {
   subscription_plans     SubscriptionPlanBuy[]
   bids                   Bid[]
   challenges_created     Challenge[]           @relation("ChallengedProvider")
+  stripe_account_id      String?
 
   PaymentHistory PaymentHistory[]
   Rating         Rating[]         @relation("RatingUser")
