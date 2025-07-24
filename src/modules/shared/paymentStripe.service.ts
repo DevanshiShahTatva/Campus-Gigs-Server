@@ -31,7 +31,7 @@ export class PaymentStripeService {
   async createPaymentIntent(amount: number, metadata: Record<string, any>) {
     const paymentIntent = await this.stripe.paymentIntents.create({
       amount, // in paise (e.g. ₹500 = 50000)
-      currency: 'inr',
+      currency: 'USD',
       payment_method_types: ['card'],
       metadata, // add gigId, userId, providerId
     });

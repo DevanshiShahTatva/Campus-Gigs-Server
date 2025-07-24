@@ -1,6 +1,7 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { StripeService } from './stripe.service';
 import { createPaymentIntentDto } from './dtos/create-payment-intent.dto';
+import { CreateGigCheckoutDto } from './dtos/create-gig-checkout-session.dto';
 
 @Controller('payment')
 export class StripeController {
@@ -14,6 +15,11 @@ export class StripeController {
   @Post('user/pay')
   async createGigPaymentIntent(@Body() body: createPaymentIntentDto) {
     return this.stripeService.createPaymentIntent(body);
+  }
+
+  @Post('gig/checkout-session')
+  async createGigCheckoutSession(@Body() body: CreateGigCheckoutDto) {
+    return this.stripeService.createGigPaymentCheckoutSession(body);
   }
 
   @Post('release')

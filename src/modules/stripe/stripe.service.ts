@@ -7,12 +7,15 @@ import {
 import { PaymentStripeService } from '../shared/paymentStripe.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { createPaymentIntentDto } from './dtos/create-payment-intent.dto';
+import { CreateGigCheckoutDto } from './dtos/create-gig-checkout-session.dto';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class StripeService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly paymentStripeService: PaymentStripeService,
+    private readonly configService: ConfigService,
   ) {}
 
   async generateOnboardLink(providerId: number) {
@@ -70,6 +73,35 @@ export class StripeService {
     );
 
     return { clientSecret };
+  }
+
+  async createGigPaymentCheckoutSession(body: CreateGigCheckoutDto) {
+    const session = await this.paymentStripeService
+      .getInstance()
+      .checkout.sessions.create({
+        payment_method_types: ['card'],
+        mode: 'payment',
+        line_items: [
+          {
+            price_data: {
+              currency: 'USD',
+              product_data: {
+                name: body.gigTitle,
+              },
+              unit_amount: body.amount * 100,
+            },
+            quantity: 1,
+          },
+        ],
+        success_url: `${this.configService.get<string>('CLIENT_URL')!}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${this.configService.get<string>('CLIENT_URL')!}/payment/cancel`,
+        metadata: {
+          gig_id: body.gigId,
+          user_id: body.userId,
+        },
+      });
+
+    return { url: session.url };
   }
 
   async realeasePayment(body: { gigId: number }) {
