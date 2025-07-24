@@ -48,10 +48,12 @@ import { PaypalModule } from './modules/paypal/paypal.module';
 import { RatingModule } from './modules/rating/rating.module';
 import { PaymentHistoryModule } from './modules/paymentHistory/paymentHistory.module';
 import { StripeModule } from './modules/stripe/stripe.module';
+import { GigNotificationModule } from './modules/gig-notification/gig-notification.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
-    // Config and core modules
+    ScheduleModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ['.env'],
@@ -120,6 +122,7 @@ import { StripeModule } from './modules/stripe/stripe.module';
     PrivacyPolicyModule,
     GigsCategoryModule,
     BidsModule,
+    GigNotificationModule,
     SkillsModule,
     GigsModule,
     PaypalModule,

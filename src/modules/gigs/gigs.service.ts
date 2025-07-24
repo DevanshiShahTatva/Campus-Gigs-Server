@@ -54,13 +54,46 @@ export class GigsService {
   }
 
   async get(query: GigsQueryParams) {
-    const { page, pageSize, search } = query;
+    const { page, pageSize, search, minRating, paymentType, minPrice, maxPrice, startDate, endDate } = query;
     const skip = (page - 1) * pageSize;
 
     const baseQuery: any = {
       AND: [{ status: GIG_STATUS.UNSTARTED }],
     };
 
+    if (paymentType && Array.isArray(paymentType) && paymentType.length > 0) {
+      baseQuery.AND.push({ payment_type: { in: paymentType } });
+    }
+    if (typeof minPrice === 'number') {
+      baseQuery.AND.push({ price: { gte: minPrice } });
+    }
+    if (typeof maxPrice === 'number') {
+      baseQuery.AND.push({ price: { lte: maxPrice } });
+    }
+     if (startDate && endDate) {
+        baseQuery.AND.push({
+          start_date_time: { gte: new Date(startDate) },
+          end_date_time: { lte: new Date(endDate) },
+        });
+      } else if (startDate) {
+        baseQuery.AND.push({
+          OR: [
+            { start_date_time: { gte: new Date(startDate) } },
+            { end_date_time: { gte: new Date(startDate) } },
+          ],
+        });
+      } else if (endDate) {
+        baseQuery.AND.push({
+          OR: [
+            { end_date_time: { lte: new Date(endDate) } },
+            { start_date_time: { lte: new Date(endDate) } },
+          ],
+        });
+      }
+    if (query.category && Array.isArray(query.category) && query.category.length > 0) {
+      baseQuery.AND.push({ gig_category_id: { in: query.category.map(Number) } });
+    }
+    
     if (search) {
       baseQuery.OR = [
         { title: { contains: search, mode: 'insensitive' } },
@@ -102,6 +135,7 @@ export class GigsService {
               certifications: true,
               education: true,
               skills: true,
+              Rating: true,
             },
           },
           skills: {
@@ -140,7 +174,35 @@ export class GigsService {
     const totalPages = Math.ceil(total / pageSize);
     const meta = { page, pageSize, total, totalPages };
 
-    return { data: items, meta, message: 'Gigs fetch successfully' };
+    const itemsWithRating = await Promise.all(items.map(async gig => {
+      const providerId = gig.user.id;
+      // Fetch all ratings for gigs where this user was the provider
+      const providerRatings = await this.prismaService.rating.findMany({
+        where: {
+          gig: {
+            provider_id: providerId,
+          },
+        },
+        select: { rating: true },
+      });
+      let averageRating;
+      if (providerRatings.length > 0) {
+        const total = providerRatings.reduce((sum, r) => sum + r.rating, 0);
+        averageRating = Number(total / providerRatings.length).toFixed(1);
+      }else {
+        averageRating = 0;
+      }
+      return {
+        ...gig,
+        user: {
+          ...gig.user,
+          averageRating: averageRating !== undefined ? averageRating : undefined,
+        },
+      };
+    }));
+    // Filter by minRating if provided
+      const filteredItems = typeof minRating === 'number' ? itemsWithRating.filter(gig => gig.user.averageRating >= minRating) : itemsWithRating;
+      return { data: filteredItems, meta, message: 'Gigs fetch successfully' };
   }
 
   async getMyGigs(query: GigsQueryParams, user_id: string) {
@@ -378,6 +440,11 @@ export class GigsService {
       where: { id: Number(gigId) },
       data: {
         status: body.status,
+        completed_at: body.status === GIG_STATUS.COMPLETED ? new Date() : undefined,
+        rating_reminder_time: body.status === GIG_STATUS.COMPLETED ? new Date(Date.now() + 5 * 60 * 1000) : undefined,
+        payment_release_time: body.status === GIG_STATUS.COMPLETED ? new Date(Date.now() + 10 * 60 * 1000) : undefined,
+        has_before_reminder_sent: body.status === GIG_STATUS.COMPLETED ? false : undefined,
+        has_after_reminder_sent: body.status === GIG_STATUS.COMPLETED ? false : undefined,
       },
     });
 

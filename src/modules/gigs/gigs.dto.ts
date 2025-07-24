@@ -114,6 +114,50 @@ export class GigsQueryParams extends PaginationParams {
   @IsOptional()
   @IsEnum(PROFILE_TYPE)
   profile_type?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  minRating?: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsEnum(PAYMENT_TYPE, { each: true })
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value.split(',').map((v: string) => v.trim());
+    }
+    return value;
+  })
+  paymentType?: PAYMENT_TYPE[];
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  minPrice?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  maxPrice?: number;
+
+  @IsOptional()
+  @IsString()
+  startDate?: string;
+
+  @IsOptional()
+  @IsString()
+  endDate?: string;
+
+  @IsOptional()
+  @IsArray()
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value.split(',').map((v: string) => v.trim());
+    }
+    return value;
+  })
+  category?: (string | number)[];
 }
 
 export class GigPipelineQueryParams extends PaginationParams {

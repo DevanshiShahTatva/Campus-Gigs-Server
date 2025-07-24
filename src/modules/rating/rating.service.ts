@@ -16,6 +16,7 @@ export class RatingService {
         status: true,
         user_id: true,
         provider_id: true,
+        completed_at: true,
       },
     });
 
@@ -23,8 +24,16 @@ export class RatingService {
       throw new BadRequestException('Gig not found.');
     }
 
-    if (gig.status !== 'completed') {
+    if (gig.status !== 'completed' || !gig.completed_at) {
       throw new BadRequestException('You can only rate a gig that has been completed.');
+    }
+
+    const completedTime = gig.completed_at;
+    const tenMinutesAfterCompleted = new Date(completedTime.getTime() + 10 * 60 * 1000);
+    const now = new Date();
+
+    if (now > tenMinutesAfterCompleted) {
+      throw new BadRequestException('Rating period has expired. You can no longer rate this gig.');
     }
 
     if (gig.provider_id === currentUserId) {
