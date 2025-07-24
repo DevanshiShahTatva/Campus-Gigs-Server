@@ -280,9 +280,6 @@ export class BuyPlanService {
       where: {
         user_id: userId,
         status: BY_PLAN_STATUS.active,
-        subscription_expiry_date: {
-          gte: new Date(),
-        },
       },
       include: {
         subscription_plan: true,
