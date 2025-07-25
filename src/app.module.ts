@@ -49,6 +49,7 @@ import { RatingModule } from './modules/rating/rating.module';
 import { PaymentHistoryModule } from './modules/paymentHistory/paymentHistory.module';
 import { GigNotificationModule } from './modules/gig-notification/gig-notification.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -125,7 +126,8 @@ import { ScheduleModule } from '@nestjs/schedule';
     SkillsModule,
     GigsModule,
     PaypalModule,
-    PaymentHistoryModule
+    PaymentHistoryModule,
+    DashboardModule
   ],
   controllers: [AppController],
   providers: [
