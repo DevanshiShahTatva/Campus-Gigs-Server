@@ -407,6 +407,7 @@ model GigPayment {
   id             Int                @id @default(autoincrement())
   gig_id         Int                @unique
   transaction_id String
+  amount         Float              @default(0)
   payment_status GIG_PAYMENT_STATUS @default(hold)
   created_at     DateTime           @default(now())
   updated_at     DateTime           @updatedAt

@@ -6,9 +6,9 @@ import {
 } from '@nestjs/common';
 import { PaymentStripeService } from '../shared/paymentStripe.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { createPaymentIntentDto } from './dtos/create-payment-intent.dto';
 import { CreateGigCheckoutDto } from './dtos/create-gig-checkout-session.dto';
 import { ConfigService } from '@nestjs/config';
+import Stripe from 'stripe';
 
 @Injectable()
 export class StripeService {
@@ -60,21 +60,6 @@ export class StripeService {
     return accountLink.url;
   }
 
-  async createPaymentIntent(body: createPaymentIntentDto) {
-    const { gigId, userId, providerId, amount } = body;
-
-    const clientSecret = await this.paymentStripeService.createPaymentIntent(
-      amount,
-      {
-        gigId,
-        userId,
-        providerId,
-      },
-    );
-
-    return { clientSecret };
-  }
-
   async createGigPaymentCheckoutSession(body: CreateGigCheckoutDto) {
     const session = await this.paymentStripeService
       .getInstance()
@@ -94,10 +79,11 @@ export class StripeService {
           },
         ],
         success_url: `${this.configService.get<string>('CLIENT_URL')!}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${this.configService.get<string>('CLIENT_URL')!}/payment/cancel`,
+        cancel_url: `${this.configService.get<string>('CLIENT_URL')!}/payment/cancel?gig-payment=cancelled`,
         metadata: {
           gig_id: body.gigId,
           user_id: body.userId,
+          amount: body.amount,
         },
       });
 
@@ -168,5 +154,72 @@ export class StripeService {
     });
 
     return { success: true };
+  }
+
+  async handleStripeGigPaymentWebhook(
+    body: Buffer<ArrayBufferLike>,
+    signature: string,
+  ) {
+    let event: Stripe.Event;
+
+    try {
+      event = this.paymentStripeService
+        .getInstance()
+        .webhooks.constructEvent(
+          body,
+          signature,
+          this.configService.get<string>('STRIPE_WEBHOOK_SECRET')!,
+        );
+    } catch (err) {
+      throw new BadRequestException(`Webhook Error: ${err.message}`);
+    }
+
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object as Stripe.Checkout.Session;
+
+      const transactionId = session.payment_intent as string;
+
+      if (
+        !session.metadata ||
+        !session.metadata.gig_id ||
+        !session.metadata.user_id ||
+        !session.metadata.amount
+      ) {
+        throw new BadRequestException('Invalid or missing in metadata');
+      }
+
+      const gigId = Number(session.metadata.gig_id);
+      const userId = Number(session.metadata.user_id);
+      const amount = Number(session.metadata.amount);
+
+      // Prevent duplicate entries
+      const existing = await this.prismaService.gigPayment.findUnique({
+        where: { gig_id: gigId },
+      });
+
+      if (!existing) {
+        await this.prismaService.gigPayment.create({
+          data: {
+            gig_id: gigId,
+            amount: amount,
+            transaction_id: transactionId,
+            payment_status: 'hold',
+          },
+        });
+
+        await this.prismaService.paymentHistory.create({
+          data: {
+            user_id: userId,
+            transaction_id: transactionId,
+            type: 'gig_payment',
+            description: 'Payment done successfully for gig.',
+            amount: amount,
+            paid_at: new Date(),
+          },
+        });
+      }
+    }
+
+    return { received: true };
   }
 }
