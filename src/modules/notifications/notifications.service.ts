@@ -13,9 +13,13 @@ export class NotificationsService {
   }
 
   async markNotificationRead(notificationId: number, userId: number) {
-    return this.prisma.notification.updateMany({
+    await this.prisma.notification.updateMany({
       where: { id: notificationId, user_id: userId },
       data: { is_read: true },
+    });
+
+    return this.prisma.notification.deleteMany({
+      where: { id: notificationId, user_id: userId, is_read: true },
     });
   }
 
@@ -32,9 +36,13 @@ export class NotificationsService {
   }
 
   async markAllNotificationsRead(userId: number) {
-    return this.prisma.notification.updateMany({
+    await this.prisma.notification.updateMany({
       where: { user_id: userId, is_read: false },
       data: { is_read: true },
+    });
+
+    return this.prisma.notification.deleteMany({
+      where: { user_id: userId, is_read: true },
     });
   }
 } 

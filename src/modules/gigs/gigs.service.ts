@@ -262,7 +262,15 @@ export class GigsService {
               },
             },
           },
-          gig_payment: true
+          gig_payment: true,
+          rating: {
+            select: {
+              id: true,
+              rating: true,
+              rating_feedback: true,
+              created_by_id: true,
+            },
+          },
         },
       }),
       this.prismaService.gigs.count({ where: baseQuery }),
@@ -399,7 +407,15 @@ export class GigsService {
               },
             },
           },
-          gig_payment: true
+          gig_payment: true,
+          rating: {
+            select: {
+              id: true,
+              rating: true,
+              rating_feedback: true,
+              created_by_id: true,
+            },
+          },
         },
       }),
       this.prismaService.gigs.count({ where: baseQuery }),
