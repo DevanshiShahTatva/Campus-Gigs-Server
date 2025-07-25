@@ -115,7 +115,8 @@ model User {
   subscription_plans     SubscriptionPlanBuy[]
   bids                   Bid[]
   challenges_created     Challenge[]           @relation("ChallengedProvider")
-  stripe_account_id      String?
+  stripe_account_id      String?               @unique
+  completed_stripe_kyc        Boolean          @default(false)
 
   PaymentHistory PaymentHistory[]
   Rating         Rating[]         @relation("RatingUser")

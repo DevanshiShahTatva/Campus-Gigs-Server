@@ -52,8 +52,8 @@ export class StripeService {
       .getInstance()
       .accountLinks.create({
         account: accountId,
-        refresh_url: `${process.env.CLIENT_URL}/onboarding/refresh`,
-        return_url: `${process.env.CLIENT_URL}/onboarding/return`,
+        refresh_url: `${process.env.CLIENT_URL}/payment/onboard/complete?is_complete=done`,
+        return_url: `${process.env.CLIENT_URL}/payment/onboard/refresh?is_complete=pending`,
         type: 'account_onboarding',
       });
 
@@ -219,6 +219,19 @@ export class StripeService {
             amount: amount,
             paid_at: new Date(),
           },
+        });
+      }
+    }
+
+    if (event.type === 'account.updated') {
+      const account = event.data.object as Stripe.Account;
+
+      const isVerified = account.charges_enabled && account.payouts_enabled;
+
+      if (isVerified) {
+        await this.prismaService.user.update({
+          where: { stripe_account_id: account.id },
+          data: { completed_stripe_kyc: true },
         });
       }
     }
