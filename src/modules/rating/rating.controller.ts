@@ -10,6 +10,8 @@ import {
 import { Request } from 'express';
 import { JwtAuthGuard } from 'src/common/guards/jwt.auth.guard';
 import { RatingService } from './rating.service';
+import { Roles } from 'src/common/decorators/roles.decorator';
+import { RolesGuard } from 'src/common/guards/roles.guard';
 import { ChallengeComplaintDto, RatingDto } from './rating.dto';
 
 @Controller('rating')
@@ -32,5 +34,12 @@ export class RatingController {
   async challengeComplaint(@Body() body: ChallengeComplaintDto, @Req() request: Request) {
     const user = request.user as any;
     return this.ratingService.challengeComplaint(body, user?.id);
+  }
+
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Get("get-all")
+  async getAll() {
+    return this.ratingService.getAll();
   }
 }
