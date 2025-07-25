@@ -1,10 +1,14 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ChallengeComplaintDto, RatingDto } from './rating.dto';
+import { StripeService } from '../stripe/stripe.service';
 
 @Injectable()
 export class RatingService {
-  constructor(private prismaService: PrismaService) { }
+  constructor(
+    private prismaService: PrismaService,
+    private stripeService: StripeService
+  ) { }
 
   async create(body: RatingDto, currentUserId: number) {
     const { gig_id, rating, rating_feedback, issue_text, what_provider_done } = body;
@@ -85,6 +89,8 @@ export class RatingService {
       });
     }
 
+    await this.stripeService.realeasePayment({ gigId: gig_id });
+    
     return createdRating;
   }
 

@@ -78,6 +78,9 @@ export class StripeService {
             quantity: 1,
           },
         ],
+        payment_intent_data: {
+          transfer_group: `gig_${body.gigId}`,
+        },
         success_url: `${this.configService.get<string>('CLIENT_URL')!}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${this.configService.get<string>('CLIENT_URL')!}/payment/cancel?gig-payment=cancelled`,
         metadata: {
@@ -118,8 +121,8 @@ export class StripeService {
 
     // Transfer amount to provider
     await this.paymentStripeService.getInstance().transfers.create({
-      amount: 50000, // same as payment amount
-      currency: 'inr',
+      amount: gigPayment.amount, // same as payment amount
+      currency: 'USD',
       destination: providerStripeId,
       transfer_group: `gig_${body.gigId}`,
     });
