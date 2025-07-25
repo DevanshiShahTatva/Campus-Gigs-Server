@@ -121,7 +121,7 @@ export class StripeService {
 
     // Transfer amount to provider
     await this.paymentStripeService.getInstance().transfers.create({
-      amount: gigPayment.amount, // same as payment amount
+      amount: gigPayment.amount * 100,
       currency: 'USD',
       destination: providerStripeId,
       transfer_group: `gig_${body.gigId}`,

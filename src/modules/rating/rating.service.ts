@@ -15,12 +15,8 @@ export class RatingService {
 
     const gig = await this.prismaService.gigs.findUnique({
       where: { id: gig_id },
-      select: {
-        id: true,
-        status: true,
-        user_id: true,
-        provider_id: true,
-        completed_at: true,
+      include: {
+        provider: true
       },
     });
 
@@ -89,8 +85,10 @@ export class RatingService {
       });
     }
 
-    await this.stripeService.realeasePayment({ gigId: gig_id });
-    
+    if (gig.provider?.stripe_account_id) {
+      await this.stripeService.realeasePayment({ gigId: gig_id });
+    }
+
     return createdRating;
   }
 
