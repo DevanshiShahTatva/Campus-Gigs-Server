@@ -85,8 +85,10 @@ export class RatingService {
       });
     }
 
-    if (gig.provider?.stripe_account_id) {
-      await this.stripeService.realeasePayment({ gigId: gig_id });
+    if (rating >=4 ) {
+      if (gig.provider?.stripe_account_id) {
+        await this.stripeService.realeasePayment({ gigId: gig_id });
+      }
     }
 
     return createdRating;
