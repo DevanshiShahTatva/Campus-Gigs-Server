@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { subMonths, startOfMonth, endOfMonth } from 'date-fns';
+import { subMonths, startOfMonth, endOfMonth, startOfDay, subDays, format } from 'date-fns';
 import { CONTACT_US_STATUS } from 'src/utils/enums';
 
 @Injectable()
@@ -13,6 +13,7 @@ export class DashboardService {
     const endOfCurrentMonth = endOfMonth(now);
     const startOfLastMonth = startOfMonth(subMonths(now, 1));
     const endOfLastMonth = endOfMonth(subMonths(now, 1));
+    const sevenDaysAgo = startOfDay(subDays(new Date(), 6));
 
     const [
       totalUsers,
@@ -28,7 +29,8 @@ export class DashboardService {
       gigsByCategory,
       totalRevenue,
       currentMonthRevenue,
-      lastMonthRevenue
+      lastMonthRevenue,
+      lastSevenDaysRevenue
     ] = await Promise.all([
       this.prisma.user.count({ where: { role: 'user' } }),
       this.prisma.user.count({ where: { role: 'user', is_banned: true } }),
@@ -112,8 +114,43 @@ export class DashboardService {
             lte: endOfLastMonth,
           },
         },
+      }),
+      this.prisma.paymentHistory.findMany({
+        where: {
+          type: 'subscription',
+          is_deleted: false,
+          paid_at: {
+            gte: sevenDaysAgo,
+          },
+        },
+        select: {
+          paid_at: true,
+          amount: true,
+        },
       })
     ]);
+
+    const revenueByDate: Record<string, number> = {};
+    for (let i = 6; i >= 0; i--) {
+      const date = format(subDays(new Date(), i), 'yyyy-MM-dd');
+      revenueByDate[date] = 0;
+    }
+
+    lastSevenDaysRevenue.forEach(({ paid_at, amount }) => {
+      const dateStr = format(paid_at, 'yyyy-MM-dd');
+      if (revenueByDate[dateStr] !== undefined) {
+        revenueByDate[dateStr] += amount;
+      }
+    });
+
+    const finalSevenDaysRevenue = Object.entries(revenueByDate).map(([date, amount]) => {
+      const day = format(new Date(date), 'EEE');
+      return {
+        date,
+        day,
+        amount,
+      };
+    });
 
     const percentageIncrease =
       lastMonthUsers === 0
@@ -165,7 +202,8 @@ export class DashboardService {
       respondedComplaintsCount: respondedCount,
       gigsByCategories,
       totalRevenue: totalRevenue._sum.amount || 0,
-      percentageIncreaseRevenue : +percentageIncreaseRevenue.toFixed(2)
+      percentageIncreaseRevenue: +percentageIncreaseRevenue.toFixed(2),
+      lastSevenDaysRevenue: finalSevenDaysRevenue
     };
   }
 }
