@@ -81,7 +81,23 @@ export class TireService {
 
   async findAll() {
     return this.prismaService.tire.findMany({
-      where: { is_deleted: false }
+      where: { is_deleted: false },
+      select:{
+        id: true,
+        description: true,
+        name: true,
+        created_at: true,
+        is_deleted: true,
+        updated_at: true,
+        gigsCategories: {
+          select:{
+            id:true,
+            name:true,
+            description: true,
+            skills: true
+          }
+        }
+      }
     });
   }
 
