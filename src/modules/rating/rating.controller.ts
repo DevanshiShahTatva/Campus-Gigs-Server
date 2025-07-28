@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -12,7 +13,7 @@ import { JwtAuthGuard } from 'src/common/guards/jwt.auth.guard';
 import { RatingService } from './rating.service';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { RolesGuard } from 'src/common/guards/roles.guard';
-import { ChallengeComplaintDto, RatingDto } from './rating.dto';
+import { ChallengeComplaintDto, DeputeQueryParams, RatingDto, ResolveDeputeGigDto } from './rating.dto';
 
 @Controller('rating')
 @UseGuards(JwtAuthGuard)
@@ -38,8 +39,22 @@ export class RatingController {
 
   @Roles('admin')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Get("get-all")
-  async getAll() {
-    return this.ratingService.getAll();
+  @Get("/get-depute-gigs")
+  async getAllDeputeGigs(@Query() query: DeputeQueryParams) {
+    return this.ratingService.getAllDeputeGigs(query);
+  }
+
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Post("/mark-under-review/:complaintId")
+  async markUnderReviewGig(@Param('complaintId') complaintId: string) {
+    return this.ratingService.markUnderReviewGig(Number(complaintId));
+  }
+
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Post("/mark-dispute-resolved/:complaintId")
+  async resolveDeputeGig(@Param('complaintId') complaintId: string, @Body() body: ResolveDeputeGigDto) {
+    return this.ratingService.resolveDeputeGig(Number(complaintId), body);
   }
 }

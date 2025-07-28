@@ -12,11 +12,31 @@ export class BidsService {
     private readonly notificationGateway: NotificationGateway,
     private readonly notificationsService: NotificationsService,
   ) { }
-
+  
   async createBid(body: CreateBidDto) {
+    const gigId = Number(body.gig_id);
+
+    const gig = await this.prismaService.gigs.findUnique({
+      where: { id: gigId },
+      select: {
+        id: true,
+        title: true,
+        user_id: true,
+        provider_id: true,
+      },
+    });
+
+    if (!gig) {
+      throw new BadRequestException('Gig not found');
+    }
+
+    if (gig.provider_id) {
+      throw new BadRequestException('A bid has already been accepted for this gig. You cannot submit bid now.');
+    }
+
     const existingBid = await this.prismaService.bid.findFirst({
       where: {
-        gig_id: Number(body.gig_id),
+        gig_id: gigId,
         provider_id: body.provider_id,
         is_deleted: false,
       },
@@ -26,20 +46,10 @@ export class BidsService {
       throw new BadRequestException('You have already submitted a bid for this gig');
     }
 
-    // Get gig information for notification
-    const gig = await this.prismaService.gigs.findUnique({
-      where: { id: Number(body.gig_id) },
-      select: { id: true, title: true, user_id: true }
-    });
-
-    if (!gig) {
-      throw new BadRequestException('Gig not found');
-    }
-
     const bid = await this.prismaService.bid.create({
       data: {
         ...body,
-        gig_id: Number(body.gig_id),
+        gig_id: gigId,
       },
       include: {
         provider: {
