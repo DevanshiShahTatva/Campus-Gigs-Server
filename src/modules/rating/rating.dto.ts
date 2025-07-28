@@ -1,3 +1,4 @@
+import { Type } from "class-transformer";
 import { IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Max, Min, ValidateIf } from "class-validator";
 
 const STATUS = ['all', 'pending', 'under_review', 'resolved'];
@@ -38,12 +39,32 @@ export class ChallengeComplaintDto {
 
 export class DeputeQueryParams {
   @IsOptional()
-  @IsString()
-  search?: string;
-
-  @IsOptional()
   @IsEnum(STATUS)
   status?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  page: number = 1;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  pageSize: number = 10;
+
+  @IsOptional()
+  @IsString()
+  search: string;
+
+  @IsOptional()
+  @IsString()
+  sortBy: string = "created_at";
+
+  @IsOptional()
+  @IsEnum(["asc", "desc"])
+  sortOrder: string = "desc";
 }
 
 export class ResolveDeputeGigDto {

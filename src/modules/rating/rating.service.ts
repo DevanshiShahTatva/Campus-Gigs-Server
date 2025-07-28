@@ -179,7 +179,8 @@ export class RatingService {
   }
 
   async getAllDeputeGigs(query: DeputeQueryParams) {
-    const { status } = query;
+    let { status, page, pageSize, search, sortBy, sortOrder } = query;
+    const skip = (page - 1) * pageSize;
 
     const whereClause: any = {
       is_deleted: false,
@@ -200,27 +201,50 @@ export class RatingService {
       whereClause.is_challenged = true;
     }
 
-    const complaints = await this.prismaService.complaint.findMany({
-      where: whereClause,
-      include: {
-        gig: {
-          include: {
-            user: true,
-            provider: true,
-          },
-        },
-        rating: {
-          include: {
-            user: true,
-          },
-        },
-      },
-      orderBy: {
-        updated_at: "desc",
-      },
-    });
+    if (search) {
+      whereClause.OR = [
+        { gig: { title: { contains: search, mode: 'insensitive' } } },
+        { gig: { user: { name: { contains: search, mode: 'insensitive' } } } },
+        { gig: { provider: { name: { contains: search, mode: 'insensitive' } } } },
+      ];
+    }
 
-    return complaints.map((complaint) => ({
+    const sortFieldMap: Record<string, any> = {
+      id: { id: sortOrder },
+      gigTitle: { gig: { title: sortOrder } },
+      userName: { gig: { user: { name: sortOrder } } },
+      providerName: { gig: { provider: { name: sortOrder } } },
+      rating: { rating: { rating: sortOrder } },
+      status: { outcome: sortOrder },
+      complaintDate: { created_at: sortOrder },
+    };
+
+    const orderBy = sortBy && sortFieldMap[sortBy] ? sortFieldMap[sortBy] : { created_at: 'desc' };
+
+    const [complaints, totalCount] = await this.prismaService.$transaction([
+      this.prismaService.complaint.findMany({
+        skip,
+        take: pageSize,
+        where: whereClause,
+        orderBy,
+        include: {
+          gig: {
+            include: {
+              user: true,
+              provider: true,
+            },
+          },
+          rating: {
+            include: {
+              user: true,
+            },
+          },
+        },
+      }),
+      this.prismaService.complaint.count({ where: whereClause }),
+    ]);
+
+    const data = complaints.map((complaint) => ({
       id: complaint.id.toString(),
       gigId: complaint.gig_id.toString(),
       gigTitle: complaint.gig.title,
@@ -231,17 +255,38 @@ export class RatingService {
       providerName: complaint.gig.provider?.name || "",
       providerImage: complaint.gig.provider?.profile || "",
       rating: complaint.rating.rating,
-      status: complaint.outcome,
       complaintDate: complaint.created_at.toISOString(),
       userFeedback: complaint.rating.rating_feedback,
       userIssue: complaint.issue_text || "",
       userExpectation: complaint.what_provider_done || "",
       providerResponse: complaint.provider_response || "",
       lastActivity: complaint.updated_at.toISOString(),
-      decision: complaint.outcome,
-      resolvedAt: complaint.outcome !== "pending" ? complaint.updated_at.toISOString() : undefined,
       adminNotes: complaint.admin_feedback || "",
+      decision: complaint.outcome,
+      status:
+        complaint.outcome === "pending"
+          ? "pending"
+          : complaint.outcome === "under_review"
+            ? "under_review"
+            : "resolved",
+      resolvedAt:
+        complaint.outcome !== "pending"
+          ? complaint.updated_at.toISOString()
+          : undefined,
     }));
+
+    const totalPages = Math.ceil(totalCount / pageSize);
+
+    return {
+      data,
+      meta: {
+        page,
+        pageSize,
+        totalPages,
+        total: totalCount,
+      },
+      message: "Dispute complaints fetched successfully.",
+    };
   }
 
   async markUnderReviewGig(complaintId: number) {
@@ -253,10 +298,20 @@ export class RatingService {
       throw new BadRequestException('Complaint not found.');
     }
 
+    if (complaint.outcome !== 'pending') {
+      throw new BadRequestException(
+        `Complaint already marked as '${complaint.outcome}'. You can only mark pending complaints as under review.`
+      );
+    }
+
+    if (!complaint.is_challenged) {
+      throw new BadRequestException('Complaint was not challenged by the provider.');
+    }
+
     await this.prismaService.complaint.update({
-      where: { id: complaint.id },
+      where: { id: complaintId },
       data: {
-        outcome: "under_review",
+        outcome: 'under_review',
       },
     });
 
@@ -267,7 +322,17 @@ export class RatingService {
   }
 
   async resolveDeputeGig(complaintId: number, param: ResolveDeputeGigDto) {
-    const { admin_notes, outcome } = param;
+    const { admin_notes, } = param;
+
+    const outcome = param.outcome as 'provider_won' | 'user_won';
+
+    const allowedOutcomes = ['provider_won', 'user_won'] as const;
+    if (!allowedOutcomes.includes(outcome)) {
+      throw new BadRequestException(
+        `Invalid outcome. Must be one of: ${allowedOutcomes.join(', ')}.`
+      );
+    }
+
     const complaint = await this.prismaService.complaint.findUnique({
       where: { id: complaintId },
     });
@@ -276,16 +341,27 @@ export class RatingService {
       throw new BadRequestException('Complaint not found.');
     }
 
+    if (complaint.outcome !== 'under_review') {
+      throw new BadRequestException(
+        `Complaint is not under review. Current status: '${complaint.outcome}'.`
+      );
+    }
+
+    if (['provider_won', 'user_won'].includes(complaint.outcome)) {
+      throw new BadRequestException('Complaint is already resolved.');
+    }
     await this.prismaService.complaint.update({
-      where: { id: complaint.id },
+      where: { id: complaintId },
       data: {
-        admin_feedback: admin_notes,
-        outcome: outcome as 'provider_won' | 'user_won',
+        admin_feedback: admin_notes?.trim() || '',
+        outcome: outcome,
       },
     });
 
     return {
+      success: true,
       message: 'Complaint resolved successfully.',
     };
   }
+
 }
