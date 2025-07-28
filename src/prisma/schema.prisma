@@ -66,6 +66,7 @@ enum BID_STATUS {
 
 enum OUTCOME {
   pending
+  under_review
   provider_won
   user_won
 }

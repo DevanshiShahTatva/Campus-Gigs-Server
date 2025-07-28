@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ChallengeComplaintDto, RatingDto } from './rating.dto';
+import { ChallengeComplaintDto, DeputeQueryParams, RatingDto, ResolveDeputeGigDto } from './rating.dto';
 
 @Injectable()
 export class RatingService {
@@ -178,17 +178,30 @@ export class RatingService {
     };
   }
 
-  async getAll() {
-    return await this.prismaService.complaint.findMany({
-      where: {
+  async getAllDeputeGigs(query: DeputeQueryParams) {
+    const { status } = query;
+
+    const whereClause: any = {
+      is_deleted: false,
+      rating: {
+        rating: { lt: 4 },
         is_deleted: false,
-        rating: {
-          rating: {
-            lt: 4,
-          },
-          is_deleted: false,
-        },
       },
+    };
+
+    if (status === "pending") {
+      whereClause.outcome = "pending";
+      whereClause.is_challenged = true;
+    } else if (status === "under_review") {
+      whereClause.outcome = "under_review";
+      whereClause.is_challenged = true;
+    } else if (status === "resolved") {
+      whereClause.outcome = { in: ["provider_won", "user_won"] };
+      whereClause.is_challenged = true;
+    }
+
+    const complaints = await this.prismaService.complaint.findMany({
+      where: whereClause,
       include: {
         gig: {
           include: {
@@ -205,29 +218,74 @@ export class RatingService {
       orderBy: {
         updated_at: "desc",
       },
-    }).then((complaints) =>
-      complaints.map((complaint) => ({
-        id: complaint.id.toString(),
-        gigId: complaint.gig_id.toString(),
-        gigTitle: complaint.gig.title,
-        userId: complaint.gig.user_id.toString(),
-        userImage: complaint.gig.user?.profile || "",
-        userName: complaint.gig.user?.name || "",
-        providerId: complaint.gig.provider_id?.toString() || "",
-        providerName: complaint.gig.provider?.name || "",
-        providerImage: complaint.gig.provider?.profile || "",
-        rating: complaint.rating.rating,
-        status: complaint.outcome,
-        complaintDate: complaint.created_at.toISOString(),
-        userFeedback: complaint.rating.rating_feedback,
-        userIssue: complaint.issue_text || "",
-        userExpectation: complaint.what_provider_done || "",
-        providerResponse: complaint.provider_response || "",
-        lastActivity: complaint.updated_at.toISOString(),
-        decision: complaint.outcome,
-        resolvedAt: complaint.outcome !== "pending" ? complaint.updated_at.toISOString() : undefined,
-        adminNotes: complaint.admin_feedback || "",
-      }))
-    );
+    });
+
+    return complaints.map((complaint) => ({
+      id: complaint.id.toString(),
+      gigId: complaint.gig_id.toString(),
+      gigTitle: complaint.gig.title,
+      userId: complaint.gig.user_id.toString(),
+      userImage: complaint.gig.user?.profile || "",
+      userName: complaint.gig.user?.name || "",
+      providerId: complaint.gig.provider_id?.toString() || "",
+      providerName: complaint.gig.provider?.name || "",
+      providerImage: complaint.gig.provider?.profile || "",
+      rating: complaint.rating.rating,
+      status: complaint.outcome,
+      complaintDate: complaint.created_at.toISOString(),
+      userFeedback: complaint.rating.rating_feedback,
+      userIssue: complaint.issue_text || "",
+      userExpectation: complaint.what_provider_done || "",
+      providerResponse: complaint.provider_response || "",
+      lastActivity: complaint.updated_at.toISOString(),
+      decision: complaint.outcome,
+      resolvedAt: complaint.outcome !== "pending" ? complaint.updated_at.toISOString() : undefined,
+      adminNotes: complaint.admin_feedback || "",
+    }));
+  }
+
+  async markUnderReviewGig(complaintId: number) {
+    const complaint = await this.prismaService.complaint.findUnique({
+      where: { id: complaintId },
+    });
+
+    if (!complaint) {
+      throw new BadRequestException('Complaint not found.');
+    }
+
+    await this.prismaService.complaint.update({
+      where: { id: complaint.id },
+      data: {
+        outcome: "under_review",
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Complaint marked under review successfully.',
+    };
+  }
+
+  async resolveDeputeGig(complaintId: number, param: ResolveDeputeGigDto) {
+    const { admin_notes, outcome } = param;
+    const complaint = await this.prismaService.complaint.findUnique({
+      where: { id: complaintId },
+    });
+
+    if (!complaint) {
+      throw new BadRequestException('Complaint not found.');
+    }
+
+    await this.prismaService.complaint.update({
+      where: { id: complaint.id },
+      data: {
+        admin_feedback: admin_notes,
+        outcome: outcome as 'provider_won' | 'user_won',
+      },
+    });
+
+    return {
+      message: 'Complaint resolved successfully.',
+    };
   }
 }
