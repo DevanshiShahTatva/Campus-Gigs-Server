@@ -55,13 +55,13 @@ export class RatingService {
       throw new BadRequestException('Rating must be between 1 and 5.');
     }
 
-    if (rating < 4) {
+    if (rating < 3) {
       if (!issue_text?.trim()) {
-        throw new BadRequestException('Issue text is required for ratings below 4.');
+        throw new BadRequestException('Issue text is required for ratings below 3.');
       }
 
       if (!what_provider_done?.trim()) {
-        throw new BadRequestException('Provider actions are required for ratings below 4.');
+        throw new BadRequestException('Provider actions are required for ratings below 3.');
       }
     }
 
@@ -74,7 +74,7 @@ export class RatingService {
       },
     });
 
-    if (rating < 4) {
+    if (rating < 3) {
       await this.prismaService.complaint.create({
         data: {
           gig_id,
@@ -182,5 +182,58 @@ export class RatingService {
     return {
       message: 'Complaint challenged successfully.',
     };
+  }
+
+  async getAll() {
+    return await this.prismaService.complaint.findMany({
+      where: {
+        is_deleted: false,
+        rating: {
+          rating: {
+            lt: 4,
+          },
+          is_deleted: false,
+        },
+      },
+      include: {
+        gig: {
+          include: {
+            user: true,
+            provider: true,
+          },
+        },
+        rating: {
+          include: {
+            user: true,
+          },
+        },
+      },
+      orderBy: {
+        updated_at: "desc",
+      },
+    }).then((complaints) =>
+      complaints.map((complaint) => ({
+        id: complaint.id.toString(),
+        gigId: complaint.gig_id.toString(),
+        gigTitle: complaint.gig.title,
+        userId: complaint.gig.user_id.toString(),
+        userImage: complaint.gig.user?.profile || "",
+        userName: complaint.gig.user?.name || "",
+        providerId: complaint.gig.provider_id?.toString() || "",
+        providerName: complaint.gig.provider?.name || "",
+        providerImage: complaint.gig.provider?.profile || "",
+        rating: complaint.rating.rating,
+        status: complaint.outcome,
+        complaintDate: complaint.created_at.toISOString(),
+        userFeedback: complaint.rating.rating_feedback,
+        userIssue: complaint.issue_text || "",
+        userExpectation: complaint.what_provider_done || "",
+        providerResponse: complaint.provider_response || "",
+        lastActivity: complaint.updated_at.toISOString(),
+        decision: complaint.outcome,
+        resolvedAt: complaint.outcome !== "pending" ? complaint.updated_at.toISOString() : undefined,
+        adminNotes: complaint.admin_feedback || "",
+      }))
+    );
   }
 }
