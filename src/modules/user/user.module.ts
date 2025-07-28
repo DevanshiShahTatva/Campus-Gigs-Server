@@ -5,10 +5,11 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { UserController } from './user.controller';
 import { AuthModule } from '../auth/auth.module';
 import { BuyPlanModule } from '../buy-plan/buy-plan.module';
+import { PublicPortfolioController } from './public-portfolio.controller';
 
 @Module({
   imports: [forwardRef(() => AuthModule), BuyPlanModule, PrismaModule],
-  controllers: [UserController],
+  controllers: [UserController, PublicPortfolioController ],
   providers: [UserService, AwsS3Service],
   exports: [UserService],
 })
