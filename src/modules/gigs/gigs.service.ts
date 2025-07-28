@@ -416,6 +416,14 @@ export class GigsService {
               created_by_id: true,
             },
           },
+          provider: {
+            select: {
+              id: true,
+              name: true,
+              completed_stripe_kyc: true,
+              stripe_account_id: true
+            }
+          }
         },
       }),
       this.prismaService.gigs.count({ where: baseQuery }),
