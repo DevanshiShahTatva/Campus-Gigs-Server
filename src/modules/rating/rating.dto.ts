@@ -20,11 +20,11 @@ export class RatingDto {
   rating_feedback: string;
 
   @IsString()
-  @ValidateIf((object, value) => object.rating < 4)
+  @ValidateIf((object, value) => object.rating < 3)
   issue_text: string;
 
   @IsString()
-  @ValidateIf((object, value) => object.rating < 4)
+  @ValidateIf((object, value) => object.rating < 3)
   what_provider_done: string;
 }
 
