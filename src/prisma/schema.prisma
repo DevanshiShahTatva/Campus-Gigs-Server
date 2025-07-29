@@ -116,6 +116,8 @@ model User {
   subscription_plans     SubscriptionPlanBuy[]
   bids                   Bid[]
   challenges_created     Challenge[]           @relation("ChallengedProvider")
+  stripe_account_id      String?               @unique
+  completed_stripe_kyc        Boolean          @default(false)
 
   PaymentHistory PaymentHistory[]
   Rating         Rating[]         @relation("RatingUser")
@@ -226,15 +228,15 @@ model Gigs {
   completed_at             DateTime?
 
   // relation
-  user         User         @relation("GigsUser", fields: [user_id], references: [id])
-  provider     User?        @relation("GigsProvider", fields: [provider_id], references: [id])
-  gig_category GigsCategory @relation(fields: [gig_category_id], references: [id])
-  skills       Skills[]     @relation("GigsSkills")
-  bids         Bid[]
-  gig_payments GigPayment[]
-  rating       Rating?
-  complaints   Complaint[]
-  challenges   Challenge[]  @relation("GigChallenges")
+  user          User         @relation("GigsUser", fields: [user_id], references: [id])
+  provider      User?        @relation("GigsProvider", fields: [provider_id], references: [id])
+  gig_category  GigsCategory @relation(fields: [gig_category_id], references: [id])
+  skills        Skills[]     @relation("GigsSkills")
+  bids          Bid[]
+  gig_payment   GigPayment?
+  rating        Rating?
+  complaints    Complaint[]
+  challenges    Challenge[]  @relation("GigChallenges")
 }
 
 model Chat {
@@ -405,8 +407,9 @@ model PaymentHistory {
 
 model GigPayment {
   id             Int                @id @default(autoincrement())
-  gig_id         Int
+  gig_id         Int                @unique
   transaction_id String
+  amount         Float              @default(0)
   payment_status GIG_PAYMENT_STATUS @default(hold)
   created_at     DateTime           @default(now())
   updated_at     DateTime           @updatedAt

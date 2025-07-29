@@ -47,6 +47,7 @@ import { ChatGateway } from './modules/chat/gateways/chat.gateway';
 import { PaypalModule } from './modules/paypal/paypal.module';
 import { RatingModule } from './modules/rating/rating.module';
 import { PaymentHistoryModule } from './modules/paymentHistory/paymentHistory.module';
+import { StripeModule } from './modules/stripe/stripe.module';
 import { GigNotificationModule } from './modules/gig-notification/gig-notification.module';
 import { ScheduleModule } from '@nestjs/schedule';
 
@@ -125,7 +126,8 @@ import { ScheduleModule } from '@nestjs/schedule';
     SkillsModule,
     GigsModule,
     PaypalModule,
-    PaymentHistoryModule
+    PaymentHistoryModule,
+    StripeModule
   ],
   controllers: [AppController],
   providers: [

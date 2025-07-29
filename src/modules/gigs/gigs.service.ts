@@ -226,6 +226,7 @@ export class GigsService {
         where: baseQuery,
         skip,
         take: pageSize,
+        orderBy: { created_at: "desc" },
         include: {
           bids: true,
           user: {
@@ -261,6 +262,7 @@ export class GigsService {
               },
             },
           },
+          gig_payment: true,
           rating: {
             select: {
               id: true,
@@ -350,7 +352,7 @@ export class GigsService {
       );
     }
 
-    if (status === 'rejected') {
+    if (status === BID_STATUS.rejected) {
       baseQuery = {
         AND: [
           { is_deleted: false },
@@ -405,6 +407,7 @@ export class GigsService {
               },
             },
           },
+          gig_payment: true,
           rating: {
             select: {
               id: true,
@@ -413,6 +416,14 @@ export class GigsService {
               created_by_id: true,
             },
           },
+          provider: {
+            select: {
+              id: true,
+              name: true,
+              completed_stripe_kyc: true,
+              stripe_account_id: true
+            }
+          }
         },
       }),
       this.prismaService.gigs.count({ where: baseQuery }),
@@ -428,12 +439,13 @@ export class GigsService {
     const findGig = await this.prismaService.gigs.findUnique({
       where: { id: Number(gigId) },
     });
+
     if (!findGig) {
       throw new NotFoundException({
         status: HttpStatus.NOT_FOUND,
         message: 'Gig not found',
       });
-    }
+    };
 
     const allowedTransitions: Record<GIG_STATUS, GIG_STATUS[]> = {
       [GIG_STATUS.UNSTARTED]: [GIG_STATUS.INPROGRESS, GIG_STATUS.REJECTED],

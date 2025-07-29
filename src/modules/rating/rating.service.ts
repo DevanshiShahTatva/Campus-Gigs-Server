@@ -1,22 +1,22 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ChallengeComplaintDto, DeputeQueryParams, RatingDto, ResolveDeputeGigDto } from './rating.dto';
+import { StripeService } from '../stripe/stripe.service';
 
 @Injectable()
 export class RatingService {
-  constructor(private prismaService: PrismaService) { }
+  constructor(
+    private prismaService: PrismaService,
+    private stripeService: StripeService
+  ) { }
 
   async create(body: RatingDto, currentUserId: number) {
     const { gig_id, rating, rating_feedback, issue_text, what_provider_done } = body;
 
     const gig = await this.prismaService.gigs.findUnique({
       where: { id: gig_id },
-      select: {
-        id: true,
-        status: true,
-        user_id: true,
-        provider_id: true,
-        completed_at: true,
+      include: {
+        provider: true
       },
     });
 
@@ -83,6 +83,12 @@ export class RatingService {
           rating_id: createdRating.id,
         },
       });
+    }
+
+    if (rating >= 3 ) {
+      if (gig.provider?.stripe_account_id && gig.provider.completed_stripe_kyc) {
+        await this.stripeService.realeasePayment({ gigId: gig_id });
+      }
     }
 
     return createdRating;

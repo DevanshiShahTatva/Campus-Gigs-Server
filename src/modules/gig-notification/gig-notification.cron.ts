@@ -5,6 +5,7 @@ import { GIG_STATUS } from '../../utils/enums';
 import { UserNotificationPayload } from '../shared/notification.util';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationGateway } from '../shared';
+import { StripeService } from '../stripe/stripe.service';
 
 @Injectable()
 export class GigNotificationCron {
@@ -13,6 +14,7 @@ export class GigNotificationCron {
     private prismaService: PrismaService,
     private notificationGateway: NotificationGateway,
     private notificationsService: NotificationsService,
+    private stripeService: StripeService
   ) { }
 
   @Cron(CronExpression.EVERY_MINUTE)
@@ -48,6 +50,9 @@ export class GigNotificationCron {
     });
 
     for (const gig of paymentReleaseGigs) {
+      if (gig.provider?.stripe_account_id && gig.provider.completed_stripe_kyc) {
+        await this.stripeService.realeasePayment({ gigId: gig.id });
+      }
       await this.sendPaymentReleaseNotification(gig);
       await this.prismaService.gigs.update({
         where: { id: gig.id },
