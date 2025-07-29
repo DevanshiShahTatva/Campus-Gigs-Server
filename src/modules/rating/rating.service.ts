@@ -85,7 +85,7 @@ export class RatingService {
       });
     }
 
-    if (rating >= 4 ) {
+    if (rating >= 3 ) {
       if (gig.provider?.stripe_account_id && gig.provider.completed_stripe_kyc) {
         await this.stripeService.realeasePayment({ gigId: gig_id });
       }
