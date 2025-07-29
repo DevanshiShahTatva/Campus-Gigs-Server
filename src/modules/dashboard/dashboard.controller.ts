@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { DashboardService } from './dashboard.service';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { JwtAuthGuard } from 'src/common/guards/jwt.auth.guard';
@@ -14,5 +14,11 @@ export class DashboardController {
   @Roles('admin')
   async getDashboardSummary() {
     return await this.dashboardService.getSummary();
+  }
+
+  @Get('revenue-overview')
+  @Roles('admin')
+  async getRevenueOverview(@Query('range') range: string = '7_days') {
+    return this.dashboardService.getRevenueOverview(range);
   }
 }
