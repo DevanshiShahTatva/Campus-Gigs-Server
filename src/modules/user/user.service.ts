@@ -6,12 +6,14 @@ import * as bcrypt from 'bcryptjs';
 import { excludeFromObject } from 'src/utils/helper';
 import { Skills } from '@prisma/client';
 import { AgreedTemsPolicy } from '../auth/auth.dto';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Injectable()
 export class UserService {
   constructor(
     private awsS3Service: AwsS3Service,
     private prismaService: PrismaService,
+    private readonly cloudinaryService: CloudinaryService
   ) {}
 
   async create(
@@ -22,12 +24,8 @@ export class UserService {
     let profile: string = '';
 
     if (file) {
-      profile = await this.awsS3Service.uploadFile(
-        file.buffer,
-        file.originalname,
-        file.mimetype,
-        'profile',
-      );
+      const upload = await this.cloudinaryService.saveFileToCloud("profile", file);
+      profile = upload.url;
     }
 
     const salt = 10;
@@ -58,17 +56,14 @@ export class UserService {
 
     if (file) {
       if (user.profile) {
-        const key = this.awsS3Service.getKeyFromUrl(user.profile);
-        await this.awsS3Service.deleteFile(key);
+        const pubKey = this.cloudinaryService.extractPublicIdFromUrl(user.profile);
+        if (pubKey) {
+          await this.cloudinaryService.deleteFromCloudinary(pubKey);
+        }
       }
 
-      const newProfileUrl = await this.awsS3Service.uploadFile(
-        file.buffer,
-        file.originalname,
-        file.mimetype,
-        'profile',
-      );
-      updateData['profile'] = newProfileUrl;
+      const upload = await this.cloudinaryService.saveFileToCloud("profile", file);
+      updateData['profile'] = upload.url;
     }
 
     const { skills, ...rest } = updateData;
@@ -319,8 +314,10 @@ export class UserService {
     });
 
     if (user?.profile) {
-      const key = this.awsS3Service.getKeyFromUrl(user?.profile);
-      await this.awsS3Service.deleteFile(key);
+      const pubKey = this.cloudinaryService.extractPublicIdFromUrl(user?.profile);
+      if (pubKey) {
+        await this.cloudinaryService.deleteFromCloudinary(pubKey);
+      }
     }
 
     return await this.prismaService.user.update({

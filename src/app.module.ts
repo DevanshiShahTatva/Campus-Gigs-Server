@@ -5,6 +5,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { AppService } from './app.service';
+import { v2 as cloudinary } from "cloudinary";
 
 // Controllers
 import { AppController } from './app.controller';
@@ -50,6 +51,7 @@ import { PaymentHistoryModule } from './modules/paymentHistory/paymentHistory.mo
 import { StripeModule } from './modules/stripe/stripe.module';
 import { GigNotificationModule } from './modules/gig-notification/gig-notification.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
 
 @Module({
   imports: [
@@ -127,7 +129,8 @@ import { ScheduleModule } from '@nestjs/schedule';
     GigsModule,
     PaypalModule,
     PaymentHistoryModule,
-    StripeModule
+    StripeModule,
+    CloudinaryModule
   ],
   controllers: [AppController],
   providers: [
@@ -138,6 +141,16 @@ import { ScheduleModule } from '@nestjs/schedule';
       useClass: ThrottlerGuard,
     },
     ChatGateway,
+    {
+      provide: "Cloudinary",
+      useFactory: () => {
+        return cloudinary.config({
+          cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+          api_key: process.env.CLOUDINARY_API_KEY,
+          api_secret: process.env.CLOUDINARY_API_SECRET,
+        });
+      },
+    }
   ],
 })
 export class AppModule implements NestModule {

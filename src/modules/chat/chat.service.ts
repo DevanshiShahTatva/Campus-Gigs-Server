@@ -17,6 +17,7 @@ import {
 import { ChatGateway } from './gateways/chat.gateway';
 import { MESSAGE_TYPE } from 'src/utils/enums';
 import { AwsS3Service } from '../shared/aws-s3.service';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Injectable()
 export class ChatService {
@@ -26,6 +27,7 @@ export class ChatService {
     @Inject(forwardRef(() => ChatGateway))
     private chatGateway: ChatGateway,
     private readonly awsS3Service: AwsS3Service,
+    private readonly cloudinaryService: CloudinaryService
   ) {}
 
   async createChat(createChatDto: { user1Id: number; user2Id: number }) {
@@ -115,14 +117,10 @@ export class ChatService {
     }[] = [];
     // Limit to 5 files
     for (const file of (files || []).slice(0, 5)) {
-      const url = await this.awsS3Service.uploadFile(
-        file.buffer,
-        file.originalname,
-        file.mimetype,
-        'chat',
-      );
+      const upload = await this.cloudinaryService.saveFileToCloud("chat", file);
+      const imageUrl = upload.url;
       attachmentsData.push({
-        url,
+        url: imageUrl,
         type: file.mimetype.startsWith('image') ? 'image' : 'file',
         filename: file.originalname,
         mimetype: file.mimetype,
@@ -279,8 +277,10 @@ export class ChatService {
       // Delete S3 files for removed attachments
       for (const attachment of toRemove) {
         try {
-          const fileKey = this.awsS3Service.getKeyFromUrl(attachment.url);
-          await this.awsS3Service.deleteFile(fileKey);
+          const pubKey = this.cloudinaryService.extractPublicIdFromUrl(attachment.url);
+          if (pubKey) {
+            await this.cloudinaryService.deleteFromCloudinary(pubKey);
+          }
         } catch (err) {
           this.logger.warn(
             `Failed to delete S3 file for attachment id ${attachment.id}: ${err.message}`,
@@ -297,14 +297,9 @@ export class ChatService {
     // 3. Upload new files and create new attachments
     const newAttachments: any[] = [];
     for (const file of (files || []).slice(0, 5)) {
-      const url = await this.awsS3Service.uploadFile(
-        file.buffer,
-        file.originalname,
-        file.mimetype,
-        'chat',
-      );
+      const upload = await this.cloudinaryService.saveFileToCloud("chat", file);
       newAttachments.push({
-        url,
+        url: upload.url,
         type: file.mimetype.startsWith('image') ? 'image' : 'file',
         filename: file.originalname,
         mimetype: file.mimetype,

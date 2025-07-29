@@ -6,9 +6,10 @@ import { UserController } from './user.controller';
 import { AuthModule } from '../auth/auth.module';
 import { BuyPlanModule } from '../buy-plan/buy-plan.module';
 import { PublicPortfolioController } from './public-portfolio.controller';
+import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 
 @Module({
-  imports: [forwardRef(() => AuthModule), BuyPlanModule, PrismaModule],
+  imports: [forwardRef(() => AuthModule), BuyPlanModule, PrismaModule, CloudinaryModule],
   controllers: [UserController, PublicPortfolioController ],
   providers: [UserService, AwsS3Service],
   exports: [UserService],
