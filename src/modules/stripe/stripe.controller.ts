@@ -7,7 +7,6 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { StripeService } from './stripe.service';
-import { createPaymentIntentDto } from './dtos/create-payment-intent.dto';
 import { CreateGigCheckoutDto } from './dtos/create-gig-checkout-session.dto';
 
 @Controller('payment')
@@ -57,5 +56,14 @@ export class StripeController {
   ) {
     const body = this.getRawBody(request);
     return this.stripeService.handleStripeGigPaymentWebhook(body, signature);
+  }
+
+  @Post('webhooks/stripe/connect')
+  async handleStripeEventConnect(
+    @Req() request: Request,
+    @Headers('stripe-signature') signature: string,
+  ) {
+    const body = this.getRawBody(request);
+    return this.stripeService.handleStripeOnBoadrdWebhook(body, signature);
   }
 }

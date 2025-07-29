@@ -52,8 +52,8 @@ export class StripeService {
       .getInstance()
       .accountLinks.create({
         account: accountId,
-        refresh_url: `${process.env.CLIENT_URL}/payment/onboard/complete?is_complete=done`,
-        return_url: `${process.env.CLIENT_URL}/payment/onboard/refresh?is_complete=pending`,
+        refresh_url: `${process.env.CLIENT_URL}/payment/onboard/refresh?is_complete=done`,
+        return_url: `${process.env.CLIENT_URL}/payment/onboard/complete?is_complete=pending`,
         type: 'account_onboarding',
       });
 
@@ -171,7 +171,7 @@ export class StripeService {
         .webhooks.constructEvent(
           body,
           signature,
-          this.configService.get<string>('STRIPE_WEBHOOK_SECRET')!,
+          this.configService.get<string>('STRIPE_MY_WEBHOOK_SECRET')!,
         );
     } catch (err) {
       throw new BadRequestException(`Webhook Error: ${err.message}`);
@@ -221,6 +221,40 @@ export class StripeService {
           },
         });
       }
+    }
+
+    if (event.type === 'account.updated') {
+      const account = event.data.object as Stripe.Account;
+
+      const isVerified = account.charges_enabled && account.payouts_enabled;
+
+      if (isVerified) {
+        await this.prismaService.user.update({
+          where: { stripe_account_id: account.id },
+          data: { completed_stripe_kyc: true },
+        });
+      }
+    }
+
+    return { received: true };
+  }
+
+  async handleStripeOnBoadrdWebhook(
+    body: Buffer<ArrayBufferLike>,
+    signature: string,
+  ) {
+    let event: Stripe.Event;
+
+    try {
+      event = this.paymentStripeService
+        .getInstance()
+        .webhooks.constructEvent(
+          body,
+          signature,
+          this.configService.get<string>('STRIPE_CONNECT_WEBHOOK_SECRET')!,
+        );
+    } catch (err) {
+      throw new BadRequestException(`Webhook Error: ${err.message}`);
     }
 
     if (event.type === 'account.updated') {
