@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { subMonths, startOfMonth, endOfMonth, subDays, format, eachMonthOfInterval, subYears, eachYearOfInterval } from 'date-fns';
-import { OUTCOME } from '@prisma/client';
+import { CONTACT_US_STATUS } from 'src/utils/enums';
 
 @Injectable()
 export class DashboardService {
@@ -31,7 +31,8 @@ export class DashboardService {
       lastMonthRevenue,
       topRatedUsersRaw,
       usersByPlan,
-      complaintsByOutcome
+      complaintsByOutcome,
+      subscriptionPlan
     ] = await Promise.all([
       this.prisma.user.count({ where: { role: 'user' } }),
       this.prisma.user.count({ where: { role: 'user', is_banned: true } }),
@@ -70,16 +71,12 @@ export class DashboardService {
           },
         },
       }),
-      this.prisma.complaint.count(),
-      this.prisma.complaint.count({
-        where: { outcome: OUTCOME.pending },
+      this.prisma.contactUs.count(),
+      this.prisma.contactUs.count({
+        where: { status: CONTACT_US_STATUS.PENDING },
       }),
-      this.prisma.complaint.count({
-        where: {
-          outcome: {
-            not: OUTCOME.pending,
-          },
-        },
+      this.prisma.contactUs.count({
+        where: { status: CONTACT_US_STATUS.RESPONDED },
       }),
       this.prisma.gigs.groupBy({
         by: ['gig_category_id'],
@@ -131,10 +128,20 @@ export class DashboardService {
         orderBy: { _avg: { rating: 'desc' } },
         take: 5,
       }),
-      this.prisma.snapshotSubscriptionPlan.groupBy({
-        by: ['base_plan_id', 'name'],
-        _count: {
-          user_id: true,
+      this.prisma.snapshotSubscriptionPlan.findMany({
+        where: {
+          base_plan_id: { not: null },
+        },
+        select: {
+          base_plan_id: true,
+          name: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
         },
       }),
       this.prisma.complaint.groupBy({
@@ -145,7 +152,13 @@ export class DashboardService {
         where: {
           is_deleted: false,
         },
-      })
+      }),
+      this.prisma.subscriptionPlan.findMany({
+        select: {
+          id: true,
+          name: true
+        }
+      }),
     ]);
 
     const percentageIncrease =
@@ -201,11 +214,29 @@ export class DashboardService {
       })
     );
 
-    const usersByPlanWithDetails = usersByPlan.map((plan) => ({
-      planId: plan.base_plan_id,
-      planName: plan.name,
-      userCount: plan._count.user_id,
-    })).sort((a, b) => b.userCount - a.userCount);
+    const groupedUsers = usersByPlan.reduce((acc, item) => {
+      if (!item.base_plan_id) return acc;
+
+      if (!acc[item.base_plan_id]) {
+        acc[item.base_plan_id] = {
+          planName: item.name,
+          users: [],
+        };
+      }
+      acc[item.base_plan_id].users.push(item.user);
+      return acc;
+    }, {} as Record<number, { planName: string; users: { id: number; name: string; email: string }[] }>);
+
+    const usersByPlanWithDetails = subscriptionPlan.map(plan => {
+      const matched = groupedUsers[plan.id];
+      return {
+        planId: plan.id,
+        planName: plan.name,
+        userCount: matched ? matched.users.length : 0,
+        users: matched ? matched.users : [],
+      };
+    }).sort((a, b) => b.userCount - a.userCount);
+
 
     const outcomeCounts = {
       pending: 0,
@@ -233,6 +264,7 @@ export class DashboardService {
       topRatedUsers,
       usersByPlan: usersByPlanWithDetails,
       complaintsByOutcome: outcomeCounts,
+      subscriptionPlan: subscriptionPlan
     };
   }
 
@@ -302,7 +334,5 @@ export class DashboardService {
 
     return { success: true, data: result };
   }
-
-
 
 }
