@@ -356,7 +356,7 @@ export class GigsService {
           {
             rating: {
               rating: {
-                lt: 4,
+                lt: 3,
               },
             },
           },

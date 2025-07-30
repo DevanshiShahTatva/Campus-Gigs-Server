@@ -2,12 +2,16 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ChallengeComplaintDto, DeputeQueryParams, RatingDto, ResolveDeputeGigDto } from './rating.dto';
 import { StripeService } from '../stripe/stripe.service';
+import { NotificationGateway } from '../shared';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class RatingService {
   constructor(
     private prismaService: PrismaService,
-    private stripeService: StripeService
+    private stripeService: StripeService,
+    private notificationGateway: NotificationGateway,
+    private notificationsService: NotificationsService,
   ) { }
 
   async create(body: RatingDto, currentUserId: number) {
@@ -85,7 +89,7 @@ export class RatingService {
       });
     }
 
-    if (rating >= 3 ) {
+    if (rating >= 3) {
       if (gig.provider?.stripe_account_id && gig.provider.completed_stripe_kyc) {
         await this.stripeService.realeasePayment({ gigId: gig_id });
       }
@@ -341,16 +345,13 @@ export class RatingService {
 
     const complaint = await this.prismaService.complaint.findUnique({
       where: { id: complaintId },
+      include: {
+        gig: true,
+      },
     });
 
     if (!complaint) {
       throw new BadRequestException('Complaint not found.');
-    }
-
-    if (complaint.outcome !== 'under_review') {
-      throw new BadRequestException(
-        `Complaint is not under review. Current status: '${complaint.outcome}'.`
-      );
     }
 
     if (['provider_won', 'user_won'].includes(complaint.outcome)) {
@@ -371,10 +372,59 @@ export class RatingService {
       await this.stripeService.realeasePayment({ gigId: complaint.gig_id });
     };
 
+    this.sendComplaintResolvedNotification(complaint.gig, outcome);
     return {
       success: true,
       message: 'Complaint resolved successfully.',
     };
   }
 
+  private async sendComplaintResolvedNotification(gig: any, outcome: 'user_won' | 'provider_won') {
+    const userPayload =
+      outcome === 'user_won'
+        ? {
+          title: 'Dispute Resolved - You Won!',
+          message: `The dispute for your gig "${gig.title}" has been resolved in your favor. A refund has been issued to your account.`,
+        }
+        : {
+          title: 'Dispute Resolved - Decision Against You',
+          message: `The dispute for your gig "${gig.title}" has been resolved in the provider's favor. Payment has been released to ${gig.provider.name}.`,
+        };
+
+    const providerPayload =
+      outcome === 'provider_won'
+        ? {
+          title: 'Dispute Resolved - You Won!',
+          message: `The dispute for gig "${gig.title}" has been resolved in your favor. The payment has been released to your account.`,
+        }
+        : {
+          title: 'Dispute Resolved - Decision Against You',
+          message: `The dispute for gig "${gig.title}" has been resolved in the user's favor. The payment has been refunded to the user.`,
+        };
+
+    const type = 'info';
+    const link = `/my-gigs`;
+
+    // Send to user
+    await this.notificationsService.createNotification(Number(gig.user_id), {
+      title: userPayload.title,
+      message: userPayload.message,
+      type,
+      link,
+    });
+    this.notificationGateway.server
+      .to(`user_${gig.user_id}`)
+      .emit('userNotification', { ...userPayload, type, link });
+
+    // Send to provider
+    await this.notificationsService.createNotification(Number(gig.provider_id), {
+      title: providerPayload.title,
+      message: providerPayload.message,
+      type,
+      link,
+    });
+    this.notificationGateway.server
+      .to(`user_${gig.provider_id}`)
+      .emit('userNotification', { ...providerPayload, type, link });
+  }
 }
