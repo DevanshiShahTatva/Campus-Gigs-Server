@@ -20,12 +20,6 @@ export class PrismaService
       ],
     });
 
-    this.$on('query', (e) => {
-      this.logger.debug(`Query: ${e.query}`);
-      this.logger.debug(`Params: ${e.params}`);
-      this.logger.debug(`Duration: ${e.duration}ms`);
-    });
-
     this.$on('error', (e) => {
       this.logger.error(`Error: ${e.message}`);
     });
