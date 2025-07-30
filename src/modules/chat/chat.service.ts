@@ -156,13 +156,27 @@ export class ChatService {
     // Emit to chat room
     this.chatGateway.getServer().to(`chat_${chatId}`).emit('newMessage', { message });
 
-    // Emit chat notification to recipient
-    this.chatGateway.emitNewMessage(chatId, {
-      ...message,
-      recipient_id: recipientId,
-      sender_id: senderId,
-      sender_name: senderName,
-    });
+// Fetch recipient's notification preferences
+const recipientNotificationPreferences =
+  await this.prismaService.notificationPreferences.findFirst({
+    where: {
+      user: {
+        id: recipientId,
+      },
+    },
+  });
+if (
+  !recipientNotificationPreferences ||
+  recipientNotificationPreferences.show_chat
+) {
+  // Emit chat notification to recipient
+  this.chatGateway.emitNewMessage(chatId, {
+    ...message,
+    recipient_id: recipientId,
+    sender_id: senderId,
+    sender_name: senderName,
+  });
+}
 
     // Emit latest message to both users' sidebar channels
     const chatRecord = await this.prismaService.chat.findUnique({

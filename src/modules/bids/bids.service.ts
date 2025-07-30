@@ -31,7 +31,9 @@ export class BidsService {
     }
 
     if (gig.provider_id) {
-      throw new BadRequestException('A bid has already been accepted for this gig. You cannot submit bid now.');
+      throw new BadRequestException(
+        'A bid has already been accepted for this gig. You cannot submit bid now.',
+      );
     }
 
     const existingBid = await this.prismaService.bid.findFirst({
@@ -43,7 +45,9 @@ export class BidsService {
     });
 
     if (existingBid) {
-      throw new BadRequestException('You have already submitted a bid for this gig');
+      throw new BadRequestException(
+        'You have already submitted a bid for this gig',
+      );
     }
 
     const bid = await this.prismaService.bid.create({
@@ -78,18 +82,32 @@ export class BidsService {
       },
     });
 
-    // Send notification to gig owner (new bid)
-    await sendUserNotification(
-      this.notificationGateway,
-      this.notificationsService,
-      gig.user_id,
-      {
-        title: 'New Bid Received',
-        message: `You received a new bid for your gig "${gig.title}"`,
-        type: 'success',
-        link: `/gigs/${gig.id}`
-      }
-    );
+    const preferences =
+      await this.prismaService.notificationPreferences.findFirst({
+        where: {
+          user: {
+            id: gig.user_id,
+          },
+        },
+        select: {
+          show_bid: true,
+        },
+      });
+
+    // Only notify if user allows bid notifications
+    if (preferences?.show_bid) {
+      await sendUserNotification(
+        this.notificationGateway,
+        this.notificationsService,
+        gig.user_id,
+        {
+          title: 'New Bid Received',
+          message: `You received a new bid for your gig "${gig.title}"`,
+          type: 'success',
+          link: `/gigs/${gig.id}`,
+        },
+      );
+    }
 
     const ratings = bid.provider.gigs_provider
       .filter((gig) => gig.rating)
@@ -256,24 +274,38 @@ export class BidsService {
         updated_at: new Date(),
       },
       include: {
+        
         provider: {
           select: { id: true }
         }
       }
     });
+    const preferences =
+      await this.prismaService.notificationPreferences.findFirst({
+        where: {
+          user: {
+            id: updatedBid.provider.id,
+          },
+        },
+        select: {
+          show_bid: true,
+        },
+      });
 
     // Notify provider (bidder) that their bid was accepted
-    await sendUserNotification(
-      this.notificationGateway,
-      this.notificationsService,
-      updatedBid.provider.id,
-      {
-        title: 'Bid Accepted',
-        message: 'Your bid was accepted!',
-        type: 'success',
-        link: `/gigs/${bid.gig.id}`
-      }
-    );
+    if (preferences?.show_bid) {
+      await sendUserNotification(
+        this.notificationGateway,
+        this.notificationsService,
+        updatedBid.provider.id,
+        {
+          title: 'Bid Accepted',
+          message: 'Your bid was accepted!',
+          type: 'success',
+          link: `/gigs/${bid.gig.id}`,
+        },
+      );
+    }
     await this.prismaService.gigs.update({
       where: { id: bid.gig_id },
       data: {
