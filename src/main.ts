@@ -18,6 +18,7 @@ async function bootstrap() {
       methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
       credentials: true,
     },
+    logger: process.env.NODE_ENV === 'production' ? false : ['log', 'error', 'warn', 'debug', 'verbose'],
   });
 
   // Use WebSocket adapter
