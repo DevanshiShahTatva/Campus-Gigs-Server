@@ -117,7 +117,10 @@ model User {
   bids                   Bid[]
   challenges_created     Challenge[]           @relation("ChallengedProvider")
   stripe_account_id      String?               @unique
-  completed_stripe_kyc        Boolean          @default(false)
+  completed_stripe_kyc   Boolean               @default(false)
+  preferences            NotificationPreferences?  @relation(fields: [preferencesId], references: [id])
+  preferencesId          Int?                  @unique
+
 
   PaymentHistory PaymentHistory[]
   Rating         Rating[]         @relation("RatingUser")
@@ -183,6 +186,16 @@ model Notification {
   updated_at        DateTime @updatedAt
   is_deleted        Boolean  @default(false)
   link              String?
+}
+
+model NotificationPreferences {
+  id           Int     @id @default(autoincrement())
+  show_chat    Boolean @default(true)
+  show_bid     Boolean @default(true)
+  show_payment Boolean @default(true)
+  show_rating  Boolean @default(true)
+  // Reverse relation
+  user       User?
 }
 
 model Bid {
