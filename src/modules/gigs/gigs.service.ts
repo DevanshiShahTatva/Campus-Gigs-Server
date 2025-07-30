@@ -15,12 +15,14 @@ import { AwsS3Service } from '../shared/aws-s3.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { GIG_STATUS } from 'src/utils/enums';
 import { BID_STATUS } from '@prisma/client';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Injectable()
 export class GigsService {
   constructor(
     private awsS3Service: AwsS3Service,
     private prismaService: PrismaService,
+    private readonly cloudinaryService: CloudinaryService
   ) {}
 
   async create(body: PostGigsDto, files?: Express.Multer.File[]) {
@@ -28,13 +30,8 @@ export class GigsService {
 
     if (files?.length) {
       for (const file of files) {
-        const url = await this.awsS3Service.uploadFile(
-          file.buffer,
-          file.originalname,
-          file.mimetype,
-          'gig',
-        );
-        imageUrls.push(url);
+        const upload = await this.cloudinaryService.saveFileToCloud("gig", file);
+        imageUrls.push(upload.url);
       }
     }
 
@@ -226,6 +223,7 @@ export class GigsService {
         where: baseQuery,
         skip,
         take: pageSize,
+        orderBy: { created_at: "desc" },
         include: {
           bids: true,
           user: {
@@ -261,6 +259,7 @@ export class GigsService {
               },
             },
           },
+          gig_payment: true,
           rating: {
             select: {
               id: true,
@@ -350,14 +349,14 @@ export class GigsService {
       );
     }
 
-    if (status === 'rejected') {
+    if (status === BID_STATUS.rejected) {
       baseQuery = {
         AND: [
           { is_deleted: false },
           {
             rating: {
               rating: {
-                lt: 4,
+                lt: 3,
               },
             },
           },
@@ -405,6 +404,7 @@ export class GigsService {
               },
             },
           },
+          gig_payment: true,
           rating: {
             select: {
               id: true,
@@ -413,6 +413,14 @@ export class GigsService {
               created_by_id: true,
             },
           },
+          provider: {
+            select: {
+              id: true,
+              name: true,
+              completed_stripe_kyc: true,
+              stripe_account_id: true
+            }
+          }
         },
       }),
       this.prismaService.gigs.count({ where: baseQuery }),
@@ -428,12 +436,13 @@ export class GigsService {
     const findGig = await this.prismaService.gigs.findUnique({
       where: { id: Number(gigId) },
     });
+
     if (!findGig) {
       throw new NotFoundException({
         status: HttpStatus.NOT_FOUND,
         message: 'Gig not found',
       });
-    }
+    };
 
     const allowedTransitions: Record<GIG_STATUS, GIG_STATUS[]> = {
       [GIG_STATUS.UNSTARTED]: [GIG_STATUS.INPROGRESS, GIG_STATUS.REJECTED],
@@ -542,21 +551,18 @@ export class GigsService {
     );
 
     for (const img of imagesToDelete) {
-      const key = this.awsS3Service.getKeyFromUrl(img);
-      await this.awsS3Service.deleteFile(key);
+      const pubKey = this.cloudinaryService.extractPublicIdFromUrl(img);
+      if (pubKey) {
+        await this.cloudinaryService.deleteFromCloudinary(pubKey);
+      }
     }
 
     const newImageUrls: string[] = [];
 
     if (files?.length) {
       for (const file of files) {
-        const url = await this.awsS3Service.uploadFile(
-          file.buffer,
-          file.originalname,
-          file.mimetype,
-          'gig',
-        );
-        newImageUrls.push(url);
+        const upload = await this.cloudinaryService.saveFileToCloud("gig", file);
+        newImageUrls.push(upload.url);
       }
     }
 
@@ -590,8 +596,10 @@ export class GigsService {
 
     if (findGigs.images && findGigs.images.length > 0) {
       for (const imageUrl of findGigs.images) {
-        const key = this.awsS3Service.getKeyFromUrl(imageUrl);
-        await this.awsS3Service.deleteFile(key);
+        const pubKey = this.cloudinaryService.extractPublicIdFromUrl(imageUrl);
+        if (pubKey) {
+          await this.cloudinaryService.deleteFromCloudinary(pubKey);
+        }
       }
     }
 

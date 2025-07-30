@@ -7,9 +7,10 @@ import { TireModule } from '../tire/tire.module';
 import { AwsS3Service } from '../shared/aws-s3.service';
 import { UserModule } from '../user/user.module';
 import { PublicGigsController } from './gigs.public.controller';
+import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 
 @Module({
-  imports: [AuthModule, TireModule, UserModule],
+  imports: [AuthModule, TireModule, UserModule, CloudinaryModule],
   controllers: [GigsController, PublicGigsController],
   providers: [GigsService, UserFromToken, AwsS3Service],
   exports: [],

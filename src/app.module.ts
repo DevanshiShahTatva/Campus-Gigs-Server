@@ -5,6 +5,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { AppService } from './app.service';
+import { v2 as cloudinary } from "cloudinary";
 
 // Controllers
 import { AppController } from './app.controller';
@@ -47,9 +48,11 @@ import { ChatGateway } from './modules/chat/gateways/chat.gateway';
 import { PaypalModule } from './modules/paypal/paypal.module';
 import { RatingModule } from './modules/rating/rating.module';
 import { PaymentHistoryModule } from './modules/paymentHistory/paymentHistory.module';
+import { StripeModule } from './modules/stripe/stripe.module';
 import { GigNotificationModule } from './modules/gig-notification/gig-notification.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
 
 @Module({
   imports: [
@@ -127,7 +130,9 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     GigsModule,
     PaypalModule,
     PaymentHistoryModule,
-    DashboardModule
+    DashboardModule,
+    StripeModule,
+    CloudinaryModule
   ],
   controllers: [AppController],
   providers: [
@@ -138,6 +143,16 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
       useClass: ThrottlerGuard,
     },
     ChatGateway,
+    {
+      provide: "Cloudinary",
+      useFactory: () => {
+        return cloudinary.config({
+          cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+          api_key: process.env.CLOUDINARY_API_KEY,
+          api_secret: process.env.CLOUDINARY_API_SECRET,
+        });
+      },
+    }
   ],
 })
 export class AppModule implements NestModule {

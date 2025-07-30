@@ -19,7 +19,6 @@ import { Request } from 'express';
 
 import { ChatService } from './chat.service';
 import { JwtAuthGuard } from '../../common/guards/jwt.auth.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import {
   CreateChatDto,
@@ -45,7 +44,6 @@ export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 
   @Post()
-  @Roles('user')
   async createChat(
     @Req() req: AuthenticatedRequest,
     @Body() createChatDto: CreateChatDto,
@@ -63,7 +61,6 @@ export class ChatController {
   }
 
   @Post(':chatId/messages')
-  @Roles('user')
   @UseInterceptors(FilesInterceptor('files', 5, multerOptions))
   async sendMessage(
     @Req() req: AuthenticatedRequest,
@@ -80,7 +77,6 @@ export class ChatController {
   }
 
   @Get(':chatId/messages')
-  @Roles('user')
   async getChatMessages(
     @Req() req: AuthenticatedRequest,
     @Param('chatId') chatId: number,
@@ -90,7 +86,6 @@ export class ChatController {
   }
 
   @Get()
-  @Roles('user')
   async getUserChats(
     @Req() req: AuthenticatedRequest,
     @Query() query: GetUserChatsDto,
@@ -99,7 +94,6 @@ export class ChatController {
   }
 
   @Get(':chatId')
-  @Roles('user')
   async getChatDetails(
     @Req() req: AuthenticatedRequest,
     @Param('chatId') chatId: number,
@@ -110,7 +104,6 @@ export class ChatController {
   }
 
   @Patch(':chatId/messages/:messageId')
-  @Roles('user')
   @UseInterceptors(FilesInterceptor('files'))
   async updateMessage(
     @Req() req: AuthenticatedRequest,
@@ -134,7 +127,6 @@ export class ChatController {
   }
 
   @Delete(':messageId')
-  @Roles('user')
   async deleteMessage(
     @Req() req: AuthenticatedRequest,
     @Param('messageId') messageId: number,

@@ -66,6 +66,7 @@ enum BID_STATUS {
 
 enum OUTCOME {
   pending
+  under_review
   provider_won
   user_won
 }
@@ -115,6 +116,11 @@ model User {
   subscription_plans     SubscriptionPlanBuy[]
   bids                   Bid[]
   challenges_created     Challenge[]           @relation("ChallengedProvider")
+  stripe_account_id      String?               @unique
+  completed_stripe_kyc   Boolean               @default(false)
+  preferences            NotificationPreferences?  @relation(fields: [preferencesId], references: [id])
+  preferencesId          Int?                  @unique
+
 
   PaymentHistory PaymentHistory[]
   Rating         Rating[]         @relation("RatingUser")
@@ -182,6 +188,16 @@ model Notification {
   link              String?
 }
 
+model NotificationPreferences {
+  id           Int     @id @default(autoincrement())
+  show_chat    Boolean @default(true)
+  show_bid     Boolean @default(true)
+  show_payment Boolean @default(true)
+  show_rating  Boolean @default(true)
+  // Reverse relation
+  user       User?
+}
+
 model Bid {
   id           Int          @id @default(autoincrement())
   provider_id  Int
@@ -225,15 +241,15 @@ model Gigs {
   completed_at             DateTime?
 
   // relation
-  user         User         @relation("GigsUser", fields: [user_id], references: [id])
-  provider     User?        @relation("GigsProvider", fields: [provider_id], references: [id])
-  gig_category GigsCategory @relation(fields: [gig_category_id], references: [id])
-  skills       Skills[]     @relation("GigsSkills")
-  bids         Bid[]
-  gig_payments GigPayment[]
-  rating       Rating?
-  complaints   Complaint[]
-  challenges   Challenge[]  @relation("GigChallenges")
+  user          User         @relation("GigsUser", fields: [user_id], references: [id])
+  provider      User?        @relation("GigsProvider", fields: [provider_id], references: [id])
+  gig_category  GigsCategory @relation(fields: [gig_category_id], references: [id])
+  skills        Skills[]     @relation("GigsSkills")
+  bids          Bid[]
+  gig_payment   GigPayment?
+  rating        Rating?
+  complaints    Complaint[]
+  challenges    Challenge[]  @relation("GigChallenges")
 }
 
 model Chat {
@@ -404,8 +420,9 @@ model PaymentHistory {
 
 model GigPayment {
   id             Int                @id @default(autoincrement())
-  gig_id         Int
+  gig_id         Int                @unique
   transaction_id String
+  amount         Float              @default(0)
   payment_status GIG_PAYMENT_STATUS @default(hold)
   created_at     DateTime           @default(now())
   updated_at     DateTime           @updatedAt

@@ -6,12 +6,14 @@ import * as bcrypt from 'bcryptjs';
 import { excludeFromObject } from 'src/utils/helper';
 import { Skills } from '@prisma/client';
 import { AgreedTemsPolicy } from '../auth/auth.dto';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Injectable()
 export class UserService {
   constructor(
     private awsS3Service: AwsS3Service,
     private prismaService: PrismaService,
+    private readonly cloudinaryService: CloudinaryService
   ) {}
 
   async create(
@@ -22,12 +24,8 @@ export class UserService {
     let profile: string = '';
 
     if (file) {
-      profile = await this.awsS3Service.uploadFile(
-        file.buffer,
-        file.originalname,
-        file.mimetype,
-        'profile',
-      );
+      const upload = await this.cloudinaryService.saveFileToCloud("profile", file);
+      profile = upload.url;
     }
 
     const salt = 10;
@@ -35,11 +33,26 @@ export class UserService {
 
     const { skills, ...rest } = userBody;
 
+      const preferences =
+        await this.prismaService.notificationPreferences.create({
+          data: {
+            show_chat: true,
+            show_bid: true,
+            show_payment: true,
+            show_rating: true,
+          },
+        });
+
     const user = await this.prismaService.user.create({
       data: {
         ...rest,
         profile,
         password: hashpassword,
+        preferences: {
+          connect: {
+            id: preferences.id,
+          },
+        },
         skills: {
           connect: validSkills.map((s) => ({ id: s.id })),
         },
@@ -58,17 +71,14 @@ export class UserService {
 
     if (file) {
       if (user.profile) {
-        const key = this.awsS3Service.getKeyFromUrl(user.profile);
-        await this.awsS3Service.deleteFile(key);
+        const pubKey = this.cloudinaryService.extractPublicIdFromUrl(user.profile);
+        if (pubKey) {
+          await this.cloudinaryService.deleteFromCloudinary(pubKey);
+        }
       }
 
-      const newProfileUrl = await this.awsS3Service.uploadFile(
-        file.buffer,
-        file.originalname,
-        file.mimetype,
-        'profile',
-      );
-      updateData['profile'] = newProfileUrl;
+      const upload = await this.cloudinaryService.saveFileToCloud("profile", file);
+      updateData['profile'] = upload.url;
     }
 
     const { skills, ...rest } = updateData;
@@ -133,6 +143,7 @@ export class UserService {
         skills: {
           select: { id: true, name: true },
         },
+        preferences: true,
         gigs_provider: {
           select: {
             id: true,
@@ -141,7 +152,26 @@ export class UserService {
             description: true,
             skills: true,
             price: true,
-            gig_category: true,
+            gig_category: {
+              select:{
+                created_at: true,
+                description: true,
+                id: true,
+                name: true,
+                tire_id: true,
+                is_deleted: true,
+                tire: {
+                  select:{
+                    created_at: true,
+                    description: true,
+                    id: true,
+                    is_deleted: true,
+                    name: true,
+                    updated_at: true,
+                  }
+                }
+              }
+            },
             certifications: true,
             rating: {
               where: { is_deleted: false },
@@ -297,6 +327,32 @@ export class UserService {
 }
 
 
+async ensureNotificationPreferences(userId: number) {
+  
+  const user = await this.findById(userId);
+  if (!user) return null;
+
+  if (!user.preferencesId) {
+    const newPrefs = await this.prismaService.notificationPreferences.create({
+      data: {
+        show_chat: true,
+        show_bid: true,
+        show_payment: true,
+        show_rating: true,
+      },
+    });
+
+    await this.updateUser(userId, {
+      preferencesId: newPrefs.id,
+    });
+
+    return newPrefs;
+  }
+
+  return await this.prismaService.notificationPreferences.findUnique({
+    where: { id: user.preferencesId },
+  });
+}
 
 
   async findById(id: number) {
@@ -313,14 +369,57 @@ export class UserService {
     });
   }
 
+async updateNotificationPreferences(
+  userId: number,
+  preferences: Partial<{
+    show_chat: boolean;
+    show_bid: boolean;
+    show_payment: boolean;
+    show_rating: boolean;
+  }>
+) {
+  const user = await this.prismaService.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  // If user already has preferences, update them
+  if (user.preferencesId) {
+    return this.prismaService.notificationPreferences.update({
+      where: { id: user.preferencesId },
+      data: preferences,
+    });
+  }
+
+  // Otherwise, create preferences and link to user
+  const newPreferences = await this.prismaService.notificationPreferences.create({
+    data: preferences,
+  });
+
+  // Update user with new preferences ID
+  await this.prismaService.user.update({
+    where: { id: userId },
+    data: {
+      preferencesId: newPreferences.id,
+    },
+  });
+
+  return newPreferences;
+}
+
   async deleteProfilePhoto(userId: string) {
     const user = await this.prismaService.user.findUnique({
       where: { id: Number(userId) },
     });
 
     if (user?.profile) {
-      const key = this.awsS3Service.getKeyFromUrl(user?.profile);
-      await this.awsS3Service.deleteFile(key);
+      const pubKey = this.cloudinaryService.extractPublicIdFromUrl(user?.profile);
+      if (pubKey) {
+        await this.cloudinaryService.deleteFromCloudinary(pubKey);
+      }
     }
 
     return await this.prismaService.user.update({

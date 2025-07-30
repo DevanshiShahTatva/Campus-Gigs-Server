@@ -36,8 +36,11 @@ export class ProfileService {
         message: 'User not found',
       });
     }
+
+    const notificationFlag = await this.userService.ensureNotificationPreferences(Number(id));
+
     const subscription = await this.buyPlanService.findActivePlan(Number(id));
-    return { ...excludeFromObject(userdata, ['password']), subscription };
+    return { ...excludeFromObject(userdata, ['password']), subscription, preferences:notificationFlag };
   }
 
   async updateProfilePhoto(
@@ -91,5 +94,15 @@ export class ProfileService {
     await this.userService.deleteProfilePhoto(id);
 
     return { message: "Profile photo deleted successfully" }
+  }
+
+  async getNotificationPreferences(id: string) {
+    const user = await this.userService.findById(Number(id));
+    if (!user) {
+      throw new NotFoundException({
+        status: HttpStatus.NOT_FOUND,
+        message: 'User not found',
+      });
+    }
   }
 }

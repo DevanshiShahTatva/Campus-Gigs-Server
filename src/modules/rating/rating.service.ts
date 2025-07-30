@@ -1,22 +1,26 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ChallengeComplaintDto, RatingDto } from './rating.dto';
+import { ChallengeComplaintDto, DeputeQueryParams, RatingDto, ResolveDeputeGigDto } from './rating.dto';
+import { StripeService } from '../stripe/stripe.service';
+import { NotificationGateway } from '../shared';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class RatingService {
-  constructor(private prismaService: PrismaService) { }
+  constructor(
+    private prismaService: PrismaService,
+    private stripeService: StripeService,
+    private notificationGateway: NotificationGateway,
+    private notificationsService: NotificationsService,
+  ) { }
 
   async create(body: RatingDto, currentUserId: number) {
     const { gig_id, rating, rating_feedback, issue_text, what_provider_done } = body;
 
     const gig = await this.prismaService.gigs.findUnique({
       where: { id: gig_id },
-      select: {
-        id: true,
-        status: true,
-        user_id: true,
-        provider_id: true,
-        completed_at: true,
+      include: {
+        provider: true
       },
     });
 
@@ -83,6 +87,12 @@ export class RatingService {
           rating_id: createdRating.id,
         },
       });
+    }
+
+    if (rating >= 3) {
+      if (gig.provider?.stripe_account_id && gig.provider.completed_stripe_kyc) {
+        await this.stripeService.realeasePayment({ gigId: gig_id });
+      }
     }
 
     return createdRating;
@@ -178,56 +188,243 @@ export class RatingService {
     };
   }
 
-  async getAll() {
-    return await this.prismaService.complaint.findMany({
-      where: {
+  async getAllDeputeGigs(query: DeputeQueryParams) {
+    let { status, page, pageSize, search, sortBy, sortOrder } = query;
+    const skip = (page - 1) * pageSize;
+
+    const whereClause: any = {
+      is_deleted: false,
+      rating: {
+        rating: { lt: 4 },
         is_deleted: false,
-        rating: {
+      },
+    };
+
+    if (status === "pending") {
+      whereClause.outcome = "pending";
+      whereClause.is_challenged = true;
+    } else if (status === "under_review") {
+      whereClause.outcome = "under_review";
+      whereClause.is_challenged = true;
+    } else if (status === "resolved") {
+      whereClause.outcome = { in: ["provider_won", "user_won"] };
+      whereClause.is_challenged = true;
+    }
+
+    if (search) {
+      whereClause.OR = [
+        { gig: { title: { contains: search, mode: 'insensitive' } } },
+        { gig: { user: { name: { contains: search, mode: 'insensitive' } } } },
+        { gig: { provider: { name: { contains: search, mode: 'insensitive' } } } },
+      ];
+    }
+
+    const sortFieldMap: Record<string, any> = {
+      id: { id: sortOrder },
+      gigTitle: { gig: { title: sortOrder } },
+      userName: { gig: { user: { name: sortOrder } } },
+      providerName: { gig: { provider: { name: sortOrder } } },
+      rating: { rating: { rating: sortOrder } },
+      status: { outcome: sortOrder },
+      complaintDate: { created_at: sortOrder },
+    };
+
+    const orderBy = sortBy && sortFieldMap[sortBy] ? sortFieldMap[sortBy] : { created_at: 'desc' };
+
+    const [complaints, totalCount] = await this.prismaService.$transaction([
+      this.prismaService.complaint.findMany({
+        skip,
+        take: pageSize,
+        where: whereClause,
+        orderBy,
+        include: {
+          gig: {
+            include: {
+              user: true,
+              provider: true,
+            },
+          },
           rating: {
-            lt: 4,
+            include: {
+              user: true,
+            },
           },
-          is_deleted: false,
         },
+      }),
+      this.prismaService.complaint.count({ where: whereClause }),
+    ]);
+
+    const data = complaints.map((complaint) => ({
+      id: complaint.id.toString(),
+      gigId: complaint.gig_id.toString(),
+      gigTitle: complaint.gig.title,
+      userId: complaint.gig.user_id.toString(),
+      userImage: complaint.gig.user?.profile || "",
+      userName: complaint.gig.user?.name || "",
+      providerId: complaint.gig.provider_id?.toString() || "",
+      providerName: complaint.gig.provider?.name || "",
+      providerImage: complaint.gig.provider?.profile || "",
+      rating: complaint.rating.rating,
+      complaintDate: complaint.created_at.toISOString(),
+      userFeedback: complaint.rating.rating_feedback,
+      userIssue: complaint.issue_text || "",
+      userExpectation: complaint.what_provider_done || "",
+      providerResponse: complaint.provider_response || "",
+      lastActivity: complaint.updated_at.toISOString(),
+      adminNotes: complaint.admin_feedback || "",
+      decision: complaint.outcome,
+      status:
+        complaint.outcome === "pending"
+          ? "pending"
+          : complaint.outcome === "under_review"
+            ? "under_review"
+            : "resolved",
+      resolvedAt:
+        complaint.outcome !== "pending"
+          ? complaint.updated_at.toISOString()
+          : undefined,
+    }));
+
+    const totalPages = Math.ceil(totalCount / pageSize);
+
+    return {
+      data,
+      meta: {
+        page,
+        pageSize,
+        totalPages,
+        total: totalCount,
       },
+      message: "Dispute complaints fetched successfully.",
+    };
+  }
+
+  async markUnderReviewGig(complaintId: number) {
+    const complaint = await this.prismaService.complaint.findUnique({
+      where: { id: complaintId },
+    });
+
+    if (!complaint) {
+      throw new BadRequestException('Complaint not found.');
+    }
+
+    if (complaint.outcome !== 'pending') {
+      throw new BadRequestException(
+        `Complaint already marked as '${complaint.outcome}'. You can only mark pending complaints as under review.`
+      );
+    }
+
+    if (!complaint.is_challenged) {
+      throw new BadRequestException('Complaint was not challenged by the provider.');
+    }
+
+    await this.prismaService.complaint.update({
+      where: { id: complaintId },
+      data: {
+        outcome: 'under_review',
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Complaint marked under review successfully.',
+    };
+  }
+
+  async resolveDeputeGig(complaintId: number, param: ResolveDeputeGigDto) {
+    const { admin_notes, } = param;
+
+    const outcome = param.outcome as 'provider_won' | 'user_won';
+
+    const allowedOutcomes = ['provider_won', 'user_won'] as const;
+    if (!allowedOutcomes.includes(outcome)) {
+      throw new BadRequestException(
+        `Invalid outcome. Must be one of: ${allowedOutcomes.join(', ')}.`
+      );
+    }
+
+    const complaint = await this.prismaService.complaint.findUnique({
+      where: { id: complaintId },
       include: {
-        gig: {
-          include: {
-            user: true,
-            provider: true,
-          },
-        },
-        rating: {
-          include: {
-            user: true,
-          },
-        },
+        gig: true,
       },
-      orderBy: {
-        updated_at: "desc",
+    });
+
+    if (!complaint) {
+      throw new BadRequestException('Complaint not found.');
+    }
+
+    if (['provider_won', 'user_won'].includes(complaint.outcome)) {
+      throw new BadRequestException('Complaint is already resolved.');
+    }
+
+    await this.prismaService.complaint.update({
+      where: { id: complaintId },
+      data: {
+        admin_feedback: admin_notes?.trim() || '',
+        outcome: outcome,
       },
-    }).then((complaints) =>
-      complaints.map((complaint) => ({
-        id: complaint.id.toString(),
-        gigId: complaint.gig_id.toString(),
-        gigTitle: complaint.gig.title,
-        userId: complaint.gig.user_id.toString(),
-        userImage: complaint.gig.user?.profile || "",
-        userName: complaint.gig.user?.name || "",
-        providerId: complaint.gig.provider_id?.toString() || "",
-        providerName: complaint.gig.provider?.name || "",
-        providerImage: complaint.gig.provider?.profile || "",
-        rating: complaint.rating.rating,
-        status: complaint.outcome,
-        complaintDate: complaint.created_at.toISOString(),
-        userFeedback: complaint.rating.rating_feedback,
-        userIssue: complaint.issue_text || "",
-        userExpectation: complaint.what_provider_done || "",
-        providerResponse: complaint.provider_response || "",
-        lastActivity: complaint.updated_at.toISOString(),
-        decision: complaint.outcome,
-        resolvedAt: complaint.outcome !== "pending" ? complaint.updated_at.toISOString() : undefined,
-        adminNotes: complaint.admin_feedback || "",
-      }))
-    );
+    });
+
+    if (outcome === "user_won") {
+      await this.stripeService.refundPayment({ gigId: complaint.gig_id });
+    } else {
+      await this.stripeService.realeasePayment({ gigId: complaint.gig_id });
+    };
+
+    this.sendComplaintResolvedNotification(complaint.gig, outcome);
+    return {
+      success: true,
+      message: 'Complaint resolved successfully.',
+    };
+  }
+
+  private async sendComplaintResolvedNotification(gig: any, outcome: 'user_won' | 'provider_won') {
+    const userPayload =
+      outcome === 'user_won'
+        ? {
+          title: 'Dispute Resolved - You Won!',
+          message: `The dispute for your gig "${gig.title}" has been resolved in your favor. A refund has been issued to your account.`,
+        }
+        : {
+          title: 'Dispute Resolved - Decision Against You',
+          message: `The dispute for your gig "${gig.title}" has been resolved in the provider's favor. Payment has been released to ${gig.provider.name}.`,
+        };
+
+    const providerPayload =
+      outcome === 'provider_won'
+        ? {
+          title: 'Dispute Resolved - You Won!',
+          message: `The dispute for gig "${gig.title}" has been resolved in your favor. The payment has been released to your account.`,
+        }
+        : {
+          title: 'Dispute Resolved - Decision Against You',
+          message: `The dispute for gig "${gig.title}" has been resolved in the user's favor. The payment has been refunded to the user.`,
+        };
+
+    const type = 'info';
+    const link = `/my-gigs`;
+
+    // Send to user
+    await this.notificationsService.createNotification(Number(gig.user_id), {
+      title: userPayload.title,
+      message: userPayload.message,
+      type,
+      link,
+    });
+    this.notificationGateway.server
+      .to(`user_${gig.user_id}`)
+      .emit('userNotification', { ...userPayload, type, link });
+
+    // Send to provider
+    await this.notificationsService.createNotification(Number(gig.provider_id), {
+      title: providerPayload.title,
+      message: providerPayload.message,
+      type,
+      link,
+    });
+    this.notificationGateway.server
+      .to(`user_${gig.provider_id}`)
+      .emit('userNotification', { ...providerPayload, type, link });
   }
 }
