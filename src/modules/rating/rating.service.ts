@@ -357,6 +357,7 @@ export class RatingService {
     if (['provider_won', 'user_won'].includes(complaint.outcome)) {
       throw new BadRequestException('Complaint is already resolved.');
     }
+
     await this.prismaService.complaint.update({
       where: { id: complaintId },
       data: {
@@ -364,6 +365,12 @@ export class RatingService {
         outcome: outcome,
       },
     });
+
+    if (outcome === "user_won") {
+      await this.stripeService.refundPayment({ gigId: complaint.gig_id });
+    } else {
+      await this.stripeService.realeasePayment({ gigId: complaint.gig_id });
+    };
 
     this.sendComplaintResolvedNotification(complaint.gig, outcome);
     return {
