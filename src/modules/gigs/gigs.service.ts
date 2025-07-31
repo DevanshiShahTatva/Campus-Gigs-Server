@@ -225,7 +225,11 @@ export class GigsService {
         take: pageSize,
         orderBy: { created_at: "desc" },
         include: {
-          bids: true,
+          bids: {
+            where: {
+              is_deleted: false,
+            },
+          },
           user: {
             select: {
               id: true,
@@ -294,6 +298,7 @@ export class GigsService {
       baseQuery.AND.push({
         bids: {
           some: {
+            is_deleted: false,
             provider_id: user_id,
             status: BID_STATUS.pending,
           },
@@ -306,6 +311,7 @@ export class GigsService {
         {
           bids: {
             some: {
+              is_deleted: false,
               provider_id: user_id,
               status: BID_STATUS.accepted,
             },
@@ -322,6 +328,7 @@ export class GigsService {
         {
           bids: {
             some: {
+              is_deleted: false,
               provider_id: user_id,
               status: BID_STATUS.accepted,
             },
@@ -338,6 +345,7 @@ export class GigsService {
         {
           bids: {
             some: {
+              is_deleted: false,
               provider_id: user_id,
               status: BID_STATUS.accepted,
             },
@@ -370,7 +378,11 @@ export class GigsService {
         skip,
         take: pageSize,
         include: {
-          bids: true,
+          bids: {
+            where: {
+              is_deleted: false,
+            },
+          },
           user: {
             select: {
               id: true,
