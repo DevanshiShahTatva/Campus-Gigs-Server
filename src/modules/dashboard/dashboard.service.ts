@@ -240,12 +240,24 @@ export class DashboardService {
 
     const outcomeCounts = {
       pending: 0,
-      provider_won: 0,
-      user_won: 0,
+      resolved: 0,
+      underReview: 0
     };
 
     for (const item of complaintsByOutcome) {
-      outcomeCounts[item.outcome] = item._count._all;
+      const count = item._count._all;
+      switch (item.outcome) {
+        case 'pending':
+          outcomeCounts.pending += count;
+          break;
+        case 'provider_won':
+        case 'user_won':
+          outcomeCounts.resolved += count;
+          break;
+        case 'under_review':
+          outcomeCounts.underReview += count;
+          break;
+      }
     }
 
     return {
