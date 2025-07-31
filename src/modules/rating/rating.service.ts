@@ -368,6 +368,14 @@ export class RatingService {
 
     if (outcome === "user_won") {
       await this.stripeService.refundPayment({ gigId: complaint.gig_id });
+
+      // reject the gig
+      await this.prismaService.gigs.update({
+        where: { id: complaint.gig_id },
+        data: {
+          status: "rejected"
+        },
+      });
     } else {
       await this.stripeService.realeasePayment({ gigId: complaint.gig_id });
     };
