@@ -27,6 +27,15 @@ export class ProfileUpdateDto {
   @IsString()
   education: string;
 
+
+  @IsOptional()
+  @IsString()
+  phone_number: string;
+
+  @IsOptional()
+  @IsString()
+  location: string;
+
   @IsOptional()
   @IsString()
   bio?: string;
