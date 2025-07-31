@@ -358,18 +358,24 @@ export class GigsService {
     }
 
     if (status === BID_STATUS.rejected) {
-      baseQuery = {
-        AND: [
-          { is_deleted: false },
-          {
-            rating: {
-              rating: {
-                lt: 3,
+      baseQuery.AND.push(
+        {
+          OR: [
+            {
+              bids: {
+                some: {
+                  is_deleted: false,
+                  provider_id: user_id,
+                  status: BID_STATUS.rejected,
+                },
               },
             },
-          },
-        ],
-      };
+            {
+              status: GIG_STATUS.REJECTED,
+            },
+          ],
+        },
+      );
     }
 
     const [items, total] = await Promise.all([
