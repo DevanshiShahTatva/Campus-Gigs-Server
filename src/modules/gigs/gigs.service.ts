@@ -23,7 +23,7 @@ export class GigsService {
     private awsS3Service: AwsS3Service,
     private prismaService: PrismaService,
     private readonly cloudinaryService: CloudinaryService
-  ) {}
+  ) { }
 
   async create(body: PostGigsDto, files?: Express.Multer.File[]) {
     const imageUrls: string[] = [];
@@ -67,30 +67,30 @@ export class GigsService {
     if (typeof maxPrice === 'number') {
       baseQuery.AND.push({ price: { lte: maxPrice } });
     }
-     if (startDate && endDate) {
-        baseQuery.AND.push({
-          start_date_time: { gte: new Date(startDate) },
-          end_date_time: { lte: new Date(endDate) },
-        });
-      } else if (startDate) {
-        baseQuery.AND.push({
-          OR: [
-            { start_date_time: { gte: new Date(startDate) } },
-            { end_date_time: { gte: new Date(startDate) } },
-          ],
-        });
-      } else if (endDate) {
-        baseQuery.AND.push({
-          OR: [
-            { end_date_time: { lte: new Date(endDate) } },
-            { start_date_time: { lte: new Date(endDate) } },
-          ],
-        });
-      }
+    if (startDate && endDate) {
+      baseQuery.AND.push({
+        start_date_time: { gte: new Date(startDate) },
+        end_date_time: { lte: new Date(endDate) },
+      });
+    } else if (startDate) {
+      baseQuery.AND.push({
+        OR: [
+          { start_date_time: { gte: new Date(startDate) } },
+          { end_date_time: { gte: new Date(startDate) } },
+        ],
+      });
+    } else if (endDate) {
+      baseQuery.AND.push({
+        OR: [
+          { end_date_time: { lte: new Date(endDate) } },
+          { start_date_time: { lte: new Date(endDate) } },
+        ],
+      });
+    }
     if (query.category && Array.isArray(query.category) && query.category.length > 0) {
       baseQuery.AND.push({ gig_category_id: { in: query.category.map(Number) } });
     }
-    
+
     if (search) {
       baseQuery.OR = [
         { title: { contains: search, mode: 'insensitive' } },
@@ -167,7 +167,7 @@ export class GigsService {
       }),
       this.prismaService.gigs.count({ where: baseQuery }),
     ]);
-  
+
     const totalPages = Math.ceil(total / pageSize);
     const meta = { page, pageSize, total, totalPages };
 
@@ -186,7 +186,7 @@ export class GigsService {
       if (providerRatings.length > 0) {
         const total = providerRatings.reduce((sum, r) => sum + r.rating, 0);
         averageRating = Number(total / providerRatings.length).toFixed(1);
-      }else {
+      } else {
         averageRating = 0;
       }
       return {
@@ -198,8 +198,8 @@ export class GigsService {
       };
     }));
     // Filter by minRating if provided
-      const filteredItems = typeof minRating === 'number' ? itemsWithRating.filter(gig => gig.user.averageRating >= minRating) : itemsWithRating;
-      return { data: filteredItems, meta, message: 'Gigs fetch successfully' };
+    const filteredItems = typeof minRating === 'number' ? itemsWithRating.filter(gig => gig.user.averageRating >= minRating) : itemsWithRating;
+    return { data: filteredItems, meta, message: 'Gigs fetch successfully' };
   }
 
   async getMyGigs(query: GigsQueryParams, user_id: string) {
@@ -529,9 +529,19 @@ export class GigsService {
       },
     });
 
+    const hasAcceptedBid = await this.prismaService.bid.findFirst({
+      where: {
+        gig_id: id,
+        status: 'accepted',
+        is_deleted: false,
+      },
+      select: { id: true },
+    });
+
     return {
       ...gig,
       hasBid: gig?.bids && gig.bids.length > 0,
+      gig_bid_accepted: !!hasAcceptedBid,
     };
   }
 

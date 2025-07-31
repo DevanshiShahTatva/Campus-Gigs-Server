@@ -242,7 +242,6 @@ export class BidsService {
   }
 
   async acceptBid(userId: number, bidId: number) {
-
     const bid = await this.prismaService.bid.findUnique({
       where: { id: bidId },
       select: {
@@ -258,15 +257,28 @@ export class BidsService {
         },
       },
     });
-
+  
     if (!bid || !bid.gig || bid.gig.is_deleted) {
       throw new BadRequestException('Bid or Gig not found.');
     }
-
+  
     if (bid.gig.user_id !== userId) {
       throw new BadRequestException('You do not have permission to accept this bid.');
     }
-
+  
+    const alreadyAccepted = await this.prismaService.bid.findFirst({
+      where: {
+        gig_id: bid.gig_id,
+        status: 'accepted',
+        is_deleted: false,
+      },
+      select: { id: true },
+    });
+  
+    if (alreadyAccepted) {
+      throw new BadRequestException('A bid for this gig has already been accepted.');
+    }
+  
     const updatedBid = await this.prismaService.bid.update({
       where: { id: bidId },
       data: {
@@ -274,24 +286,23 @@ export class BidsService {
         updated_at: new Date(),
       },
       include: {
-        
         provider: {
           select: { id: true }
         }
       }
     });
-    const preferences =
-      await this.prismaService.notificationPreferences.findFirst({
-        where: {
-          user: {
-            id: updatedBid.provider.id,
-          },
+  
+    const preferences = await this.prismaService.notificationPreferences.findFirst({
+      where: {
+        user: {
+          id: updatedBid.provider.id,
         },
-        select: {
-          show_bid: true,
-        },
-      });
-
+      },
+      select: {
+        show_bid: true,
+      },
+    });
+  
     // Notify provider (bidder) that their bid was accepted
     if (preferences?.show_bid) {
       await sendUserNotification(
@@ -312,9 +323,9 @@ export class BidsService {
         provider_id: bid.provider_id,
       },
     });
-
+  
     return updatedBid;
-  }
+  }  
 
   async rejectBid(userId: number, bidId: number) {
     const bid = await this.prismaService.bid.findUnique({
