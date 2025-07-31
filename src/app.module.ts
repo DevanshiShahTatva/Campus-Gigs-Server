@@ -51,6 +51,7 @@ import { PaymentHistoryModule } from './modules/paymentHistory/paymentHistory.mo
 import { StripeModule } from './modules/stripe/stripe.module';
 import { GigNotificationModule } from './modules/gig-notification/gig-notification.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
 
 @Module({
@@ -129,6 +130,7 @@ import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
     GigsModule,
     PaypalModule,
     PaymentHistoryModule,
+    DashboardModule,
     StripeModule,
     CloudinaryModule
   ],
